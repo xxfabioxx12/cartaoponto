@@ -106,12 +106,49 @@ npm run dev  # Serve em http://localhost:3000
 - Deploy automático em push para `main`
 - Variáveis de ambiente configuradas no Vercel
 
-## 🔧 Próximas Etapas
+## 🔧 Status Atual (18 Fevereiro 2026)
 
-1. ✅ Criar tabelas no Supabase (schema.sql)
-2. ⏳ Configurar Vercel
-3. ⏳ Deploy inicial
-4. ⏳ Configurar domínio customizado (Hostinger)
+### ✅ CONCLUÍDO (60%):
+1. ✅ Código HTML desenvolvido (1.320 linhas)
+2. ✅ Supabase integrado no frontend
+3. ✅ Arquivos de configuração (.env, .env.example, .gitignore)
+4. ✅ Git inicializado e primeiro commit
+5. ✅ Repositório GitHub criado e push feito
+6. ✅ Documentação completa (6 arquivos, 765 linhas)
+7. ✅ Schema SQL criado (5 tabelas)
+
+### ⏳ PENDENTE (40% - Ações Manuais):
+1. ⏳ Executar schema.sql no Supabase SQL Editor
+2. ⏳ Criar projeto no Vercel
+3. ⏳ Configurar DNS no Hostinger
+4. ⏳ Adicionar domínio customizado no Vercel
+5. ⏳ Testar aplicação final
+
+## 📋 Arquivos Criados Durante Publicação
+
+- **APENAS_ACCOES_MANUAIS.md** - Ações que o usuário precisa fazer (120 linhas)
+- **DEPLOY_CHECKLIST.md** - Guia passo a passo detalhado (228 linhas)
+- **INSTRUCOES_PARA_CLAUDE_EXTENSION.md** - Para automação (99 linhas)
+- **RESUMO_EXECUTIVO.txt** - Overview executivo (134 linhas)
+- **README.md** - Setup rápido (53 linhas)
+- **schema.sql** - Script de banco de dados
+
+## 🔐 Credenciais & Senhas
+
+**Senha Admin Padrão**: `admin123`
+- Armazenada em Base64 (atualizar para produção)
+- Pode ser alterada via painel admin → Configurações
+
+**Chaves Supabase**: Em `.env` (não versionado)
+- Anon Key para frontend
+- Service Role para backend (futuro)
+
+## 📊 GitHub Repository
+
+- **URL**: https://github.com/xxfabioxx12/cartaoponto
+- **Branch**: main
+- **Commits**: 4 commits iniciais
+- **Status**: Pronto para Vercel deploy
 
 ## 🔐 IMPORTANTE
 
