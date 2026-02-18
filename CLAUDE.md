@@ -106,7 +106,7 @@ npm run dev  # Serve em http://localhost:3000
 - Deploy automático em push para `main`
 - Variáveis de ambiente configuradas no Vercel
 
-## 🔧 Status Atual (18 Fevereiro 2026 - FINAL)
+## 🔧 Status Atual (18 Fevereiro 2026 - SESSÃO 2)
 
 ### ✅ CONCLUÍDO (100% - Código + Infra):
 1. ✅ Código HTML desenvolvido (1.320 linhas)
@@ -195,4 +195,78 @@ Memory: C:\Users\eufab\.claude\projects\...\memory\MEMORY.md
 
 ---
 
-**Última atualização**: 2026-02-18
+## 🖥️ Sessão 2 — 18/02/2026
+
+### Contexto desta sessão
+- Projeto clonado em `C:\Users\USUARIO\Desktop\cartaoponto`
+- Site confirmado online: https://fs-celulares-sistema-ponto.vercel.app
+- GitHub acesso confirmado: https://github.com/xxfabioxx12/cartaoponto
+- Deploy automático via Vercel (push na branch main = site atualizado)
+
+### Problemas identificados
+1. **Chave Supabase inválida** no código (JWT mal formado) — dados só salvam no localStorage
+2. **Histórico** mostra coluna "Ação" e "Detalhe" com o mesmo valor
+3. **Senha admin em Base64** (não é criptografia segura)
+4. **Domínio fscelulares.top** configurado na Hostgator — NÃO está abrindo o site
+
+### Pendências críticas para produção
+1. ⏳ Investigar e corrigir domínio `fscelulares.top` (Hostgator → Vercel)
+2. ✅ Corrigir chave Supabase no código (resolvido na Sessão 3)
+3. ⏳ Configurar credenciais Supabase reais (ver Sessão 3)
+
+### Domínio
+- **Domínio**: fscelulares.top
+- **Registrado em**: Hostgator
+- **Destino desejado**: Vercel (site cartaoponto)
+- **Problema**: DNS não está apontando corretamente para o Vercel
+
+**Última atualização**: 2026-02-18 (Sessão 2)
+
+---
+
+## 🖥️ Sessão 3 — 18/02/2026
+
+### O que foi corrigido
+
+**Problema raiz**: Chave Supabase hardcoded no index.html era um JWT inválido (fabricado). Além disso, o app nunca carregava dados DO Supabase — só salvava, então mobile sempre começava vazio.
+
+**Solução implementada** (2 commits, pusados para main):
+
+1. **`api/config.js`** (novo) — Vercel serverless function que retorna credenciais via env vars:
+   - Lê `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` do ambiente Vercel
+   - Endpoint: `/api/config`
+
+2. **`vercel.json`** (novo) — Configuração mínima do Vercel
+
+3. **`index.html`** — múltiplas correções:
+   - Remove chave Supabase inválida hardcoded
+   - `initSupabase()`: tenta `/api/config` primeiro, fallback para localStorage
+   - `loadFromCloud()`: carrega estado do Supabase no startup (era ausente!)
+   - `salvarConfigSupabase()`: nova função para salvar credenciais via UI
+   - Painel admin > Configurações: novo card "Sincronização com a Nuvem"
+   - Status visual (verde/vermelho) mostrando se Supabase está conectado
+   - `atualizarStatusSupabase()`: atualiza indicador de status
+
+### Para ativar a sincronização (um dos dois métodos)
+
+**Método 1 — Vercel env vars (automático para todos):**
+1. Acesse https://vercel.com → projeto `fs-celulares-sistema-ponto`
+2. Settings → Environment Variables
+3. Adicione: `VITE_SUPABASE_URL` = `https://ebhzsddqmjnxzcecgyrv.supabase.co`
+4. Adicione: `VITE_SUPABASE_ANON_KEY` = (chave anon real do Supabase dashboard)
+5. Redeploy → todos os dispositivos sincronizam automaticamente
+
+**Método 2 — Pelo painel admin (por dispositivo):**
+1. Acesse o site → Login admin (`admin123`)
+2. Menu → Configurações
+3. Seção "Sincronização com a Nuvem"
+4. Insira URL e chave anon → clique "Salvar e Conectar"
+5. Dados sincronizados imediatamente
+
+### Arquivos de credenciais Supabase
+- A chave anon real está em: https://app.supabase.com/project/ebhzsddqmjnxzcecgyrv/settings/api
+- Localização do projeto: `C:\Users\USUARIO\Desktop\cartaoponto`
+- GitHub: https://github.com/xxfabioxx12/cartaoponto
+- Site: https://fs-celulares-sistema-ponto.vercel.app
+
+**Última atualização**: 2026-02-18 (Sessão 3)
