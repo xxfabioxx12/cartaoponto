@@ -1,0 +1,1345 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>FS Celulares — Sistema de Ponto</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.38.0"></script>
+<script id="tailwind-config">
+  tailwind.config = {
+    darkMode:"class",
+    theme:{extend:{
+      colors:{"primary":"#0b50da","background-light":"#f5f6f8"},
+      fontFamily:{"display":["Inter","sans-serif"]},
+      borderRadius:{"DEFAULT":"0.25rem","lg":"0.5rem","xl":"0.75rem","full":"9999px"},
+    }},
+  }
+</script>
+<style>
+  body{font-family:'Inter',sans-serif;}
+  .material-symbols-outlined{font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;}
+  .active-link{background-color:rgba(11,80,218,0.1);color:#0b50da;border-right:4px solid #0b50da;}
+  .page{display:none;}.page.active{display:block;}
+  .toast{transform:translateY(100px);opacity:0;transition:all 0.4s ease;pointer-events:none;}
+  .toast.show{transform:translateY(0);opacity:1;}
+  .modal-overlay{display:none;}.modal-overlay.open{display:flex;}
+  .horas-extra{background:#dcfce7;color:#16a34a;}
+  .horas-falta{background:#fee2e2;color:#dc2626;}
+  .horas-ok{background:#dbeafe;color:#1d4ed8;}
+  .bar-chart-bar{transition:height 0.5s ease;}
+  /* ===== SESSÕES ===== */
+  #tela-publica, #tela-funcionario, #painel-admin { display:none; }
+  #tela-publica.ativa, #tela-funcionario.ativa, #painel-admin.ativa { display:flex; }
+  #painel-admin.ativa { flex-direction:row; min-height:100vh; }
+  @keyframes shake {
+    0%,100%{transform:translateX(0)} 20%,60%{transform:translateX(-6px)} 40%,80%{transform:translateX(6px)}
+  }
+  .shake { animation: shake 0.4s ease; }
+  .func-card { transition: all 0.18s ease; }
+  .func-card:hover { transform: translateY(-4px); box-shadow: 0 12px 32px rgba(11,80,218,0.13); }
+  #pub-clock-h, #pub-clock-m { min-width:120px; }
+</style>
+</head>
+<body class="bg-background-light text-slate-900 antialiased font-display">
+
+<!-- ============================================================ -->
+<!-- TELA PÚBLICA (idle) -->
+<!-- ============================================================ -->
+<div id="tela-publica" class="flex-col min-h-screen w-full bg-background-light">
+  <!-- Topo: Logo + Relógio -->
+  <div class="flex flex-col items-center pt-12 pb-6 gap-4">
+    <div class="flex items-center gap-3 mb-2">
+      <div class="bg-primary rounded-xl p-2.5"><span class="material-symbols-outlined text-white text-2xl">storefront</span></div>
+      <div><h1 class="text-slate-900 text-2xl font-extrabold leading-none">FS Celulares</h1><span class="text-slate-500 text-sm">Sistema de Ponto</span></div>
+    </div>
+    <!-- Relógio grande -->
+    <div class="flex items-center gap-4 text-7xl md:text-8xl font-black tracking-tighter mt-2">
+      <div id="pub-clock-h" class="bg-white px-7 py-5 rounded-2xl shadow border border-slate-200 text-center">00</div>
+      <span class="animate-pulse text-primary">:</span>
+      <div id="pub-clock-m" class="bg-white px-7 py-5 rounded-2xl shadow border border-slate-200 text-center">00</div>
+      <span id="pub-clock-s" class="text-3xl font-bold text-slate-400 self-end mb-5">00</span>
+    </div>
+    <p id="pub-clock-date" class="text-slate-500 font-medium uppercase tracking-widest text-sm"></p>
+  </div>
+
+  <!-- Cards dos funcionários -->
+  <div class="flex-1 flex flex-col items-center px-6 pb-6">
+    <p class="text-slate-400 text-xs font-bold uppercase tracking-widest mb-4">Selecione seu nome para registrar o ponto</p>
+    <div id="pub-func-cards" class="grid grid-cols-1 sm:grid-cols-3 gap-5 w-full max-w-2xl"></div>
+  </div>
+
+  <!-- Rodapé: botão admin -->
+  <div class="flex justify-center pb-8">
+    <button onclick="abrirLoginAdmin()" class="flex items-center gap-2 text-slate-400 hover:text-slate-600 text-xs font-semibold px-4 py-2 rounded-lg hover:bg-slate-200 transition-all">
+      <span class="material-symbols-outlined text-base">settings</span>Acesso Administrativo
+    </button>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- TELA DO FUNCIONÁRIO -->
+<!-- ============================================================ -->
+<div id="tela-funcionario" class="flex-col min-h-screen w-full bg-background-light">
+  <!-- Header simples -->
+  <header class="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between shadow-sm">
+    <div class="flex items-center gap-3">
+      <div id="func-avatar" class="size-11 rounded-full bg-primary/20 text-primary flex items-center justify-center font-extrabold text-sm"></div>
+      <div>
+        <p id="func-nome-header" class="font-extrabold text-slate-900 text-base leading-tight"></p>
+        <p id="func-cargo-header" class="text-slate-500 text-xs"></p>
+      </div>
+    </div>
+    <button onclick="encerrarSessao()" class="flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-red-600 hover:bg-red-50 px-3 py-2 rounded-lg transition-all">
+      <span class="material-symbols-outlined text-base">logout</span>Encerrar Sessão
+    </button>
+  </header>
+
+  <!-- Conteúdo -->
+  <div class="flex flex-col items-center p-6 lg:p-8 gap-6 max-w-3xl mx-auto w-full">
+    <!-- Relógio -->
+    <div class="text-center w-full">
+      <div class="flex items-center justify-center gap-3 text-5xl md:text-7xl font-black tracking-tighter">
+        <div id="func-clock-h" class="bg-white px-5 py-3 rounded-2xl shadow-sm border border-slate-200">00</div>
+        <span class="animate-pulse text-primary">:</span>
+        <div id="func-clock-m" class="bg-white px-5 py-3 rounded-2xl shadow-sm border border-slate-200">00</div>
+        <span id="func-clock-s" class="text-2xl font-bold text-slate-400 self-end mb-3">00</span>
+      </div>
+      <p id="func-clock-date" class="text-slate-500 font-medium uppercase tracking-widest text-xs mt-2"></p>
+    </div>
+
+    <!-- Card do turno -->
+    <div id="func-turno-card" class="w-full bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+      <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1"><span class="material-symbols-outlined text-sm">schedule</span>Seu Turno</p>
+      <div id="func-turno-info" class="grid grid-cols-4 gap-3 text-center"></div>
+    </div>
+
+    <!-- 4 botões de ponto -->
+    <section class="w-full grid grid-cols-2 md:grid-cols-4 gap-4">
+      <button onclick="registrarPontoFunc('entrada')" class="flex flex-col items-center justify-center gap-3 p-6 bg-primary text-white rounded-2xl shadow-lg hover:bg-blue-700 transition-all hover:-translate-y-1">
+        <span class="material-symbols-outlined text-4xl">login</span><span class="font-bold text-lg">Entrada</span>
+      </button>
+      <button onclick="registrarPontoFunc('saida_intervalo')" class="flex flex-col items-center justify-center gap-3 p-6 bg-white border border-slate-200 rounded-2xl shadow-sm hover:border-primary transition-all hover:-translate-y-1">
+        <span class="material-symbols-outlined text-4xl text-primary">restaurant</span><span class="font-bold text-lg text-slate-700">Saída Intervalo</span>
+      </button>
+      <button onclick="registrarPontoFunc('volta_intervalo')" class="flex flex-col items-center justify-center gap-3 p-6 bg-white border border-slate-200 rounded-2xl shadow-sm hover:border-primary transition-all hover:-translate-y-1">
+        <span class="material-symbols-outlined text-4xl text-primary">assignment_return</span><span class="font-bold text-lg text-slate-700">Volta Intervalo</span>
+      </button>
+      <button onclick="registrarPontoFunc('saida')" class="flex flex-col items-center justify-center gap-3 p-6 bg-slate-900 text-white rounded-2xl shadow-lg hover:bg-black transition-all hover:-translate-y-1">
+        <span class="material-symbols-outlined text-4xl">logout</span><span class="font-bold text-lg">Saída</span>
+      </button>
+    </section>
+
+    <!-- Registros do dia -->
+    <section class="w-full bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+      <div class="px-6 py-4 border-b border-slate-200 flex justify-between items-center">
+        <h3 class="font-bold text-slate-800 flex items-center gap-2"><span class="material-symbols-outlined text-primary">history</span>Registros de Hoje</h3>
+        <span id="func-total-hoje" class="text-xs font-bold text-primary bg-primary/10 px-3 py-1 rounded-full">Total: 00h 00m</span>
+      </div>
+      <div id="func-historico-hoje" class="divide-y divide-slate-100">
+        <p class="px-6 py-8 text-center text-slate-400 text-sm">Nenhum registro ainda</p>
+      </div>
+    </section>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- MODAL LOGIN ADMIN -->
+<!-- ============================================================ -->
+<div id="modal-login-admin" class="modal-overlay fixed inset-0 z-[100] items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm">
+  <div class="w-full max-w-sm bg-white rounded-2xl shadow-2xl overflow-hidden">
+    <div class="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+      <div class="flex items-center gap-2">
+        <span class="material-symbols-outlined text-primary">admin_panel_settings</span>
+        <h3 class="text-lg font-bold">Acesso Administrativo</h3>
+      </div>
+      <button onclick="fecharLoginAdmin()" class="text-slate-400 hover:text-slate-600"><span class="material-symbols-outlined">close</span></button>
+    </div>
+    <div class="p-6 space-y-4">
+      <div>
+        <label class="block text-sm font-semibold mb-1.5 text-slate-700">Senha</label>
+        <input id="admin-senha-input" type="password" placeholder="Digite a senha do administrador"
+          class="w-full rounded-lg border-slate-200 text-sm p-3 border focus:ring-2 focus:ring-primary focus:border-primary outline-none transition"
+          onkeydown="if(event.key==='Enter') tentarLoginAdmin()"/>
+      </div>
+      <p id="admin-senha-erro" class="text-red-600 text-sm font-semibold hidden">Senha incorreta. Tente novamente.</p>
+    </div>
+    <div class="px-6 py-4 bg-slate-50 flex justify-end gap-3">
+      <button onclick="fecharLoginAdmin()" class="px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100 rounded-lg">Cancelar</button>
+      <button onclick="tentarLoginAdmin()" class="px-6 py-2 text-sm font-bold text-white bg-primary hover:bg-primary/90 rounded-lg shadow-md">Entrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- PAINEL ADMIN (layout original) -->
+<!-- ============================================================ -->
+<div id="painel-admin" class="flex-row w-full">
+<div class="flex min-h-screen w-full">
+  <!-- ===== SIDEBAR ===== -->
+  <aside class="w-64 bg-white border-r border-slate-200 flex flex-col fixed h-full z-50">
+    <div class="p-6 flex items-center gap-3">
+      <div class="bg-primary rounded-lg p-2"><span class="material-symbols-outlined text-white">storefront</span></div>
+      <div><h1 class="text-slate-900 text-lg font-bold leading-none">FS Celulares</h1><span class="text-slate-500 text-xs mt-1 block">Gestão de Ponto</span></div>
+    </div>
+    <nav class="flex-1 mt-4 px-4 space-y-1">
+      <a onclick="showPage('dashboard')" class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg cursor-pointer transition-colors text-slate-600 hover:bg-slate-100" data-page="dashboard"><span class="material-symbols-outlined">dashboard</span><span class="text-sm font-medium">Dashboard</span></a>
+      <a onclick="showPage('funcionarios')" class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg cursor-pointer transition-colors text-slate-600 hover:bg-slate-100" data-page="funcionarios"><span class="material-symbols-outlined">group</span><span class="text-sm font-medium">Funcionários</span></a>
+      <a onclick="showPage('relatorios')" class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg cursor-pointer transition-colors text-slate-600 hover:bg-slate-100" data-page="relatorios"><span class="material-symbols-outlined">description</span><span class="text-sm font-medium">Relatórios</span></a>
+      <a onclick="showPage('banco_horas')" class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg cursor-pointer transition-colors text-slate-600 hover:bg-slate-100" data-page="banco_horas"><span class="material-symbols-outlined">account_balance</span><span class="text-sm font-medium">Banco de Horas</span></a>
+      <a onclick="showPage('historico')" class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg cursor-pointer transition-colors text-slate-600 hover:bg-slate-100" data-page="historico"><span class="material-symbols-outlined">manage_history</span><span class="text-sm font-medium">Histórico</span></a>
+      <a onclick="showPage('turnos')" class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg cursor-pointer transition-colors text-slate-600 hover:bg-slate-100" data-page="turnos"><span class="material-symbols-outlined">schedule</span><span class="text-sm font-medium">Turnos</span></a>
+      <a onclick="showPage('configuracoes')" class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg cursor-pointer transition-colors text-slate-600 hover:bg-slate-100" data-page="configuracoes"><span class="material-symbols-outlined">lock_reset</span><span class="text-sm font-medium">Alterar Senha</span></a>
+    </nav>
+    <div class="p-4 border-t border-slate-200 space-y-2">
+      <div class="flex items-center gap-3 p-2">
+        <div class="size-10 rounded-full bg-primary flex items-center justify-center text-white font-bold text-sm">AD</div>
+        <div class="flex-1 overflow-hidden"><p class="text-sm font-bold truncate">Administrador</p><p class="text-xs text-slate-500 truncate">Gerente de Loja</p></div>
+      </div>
+      <button onclick="encerrarSessao()" class="w-full flex items-center gap-2 px-4 py-2.5 rounded-lg text-red-500 hover:bg-red-50 transition-colors text-sm font-bold">
+        <span class="material-symbols-outlined text-xl">logout</span>Sair do Painel
+      </button>
+    </div>
+  </aside>
+  <!-- ===== MAIN ===== -->
+  <main class="flex-1 ml-64 min-h-screen">
+    <header class="h-16 bg-white border-b border-slate-200 px-8 flex items-center justify-between sticky top-0 z-40">
+      <div class="flex items-center gap-4">
+        <h2 id="page-title" class="text-xl font-bold">Dashboard</h2>
+        <div class="hidden md:flex items-center bg-slate-100 rounded-lg px-3 py-1.5">
+          <span class="material-symbols-outlined text-sm mr-2 text-slate-500">calendar_today</span>
+          <span id="header-date" class="text-xs font-medium text-slate-600"></span>
+        </div>
+      </div>
+      <div class="flex items-center gap-3">
+        <span class="text-xs text-green-600 font-bold bg-green-50 px-2 py-1 rounded-full flex items-center gap-1"><span class="material-symbols-outlined text-sm">save</span>Auto-salvo</span>
+        <button class="size-10 flex items-center justify-center rounded-lg bg-slate-100 text-slate-600"><span class="material-symbols-outlined">notifications</span></button>
+      </div>
+    </header>
+    <!-- ===== DASHBOARD ===== -->
+    <div id="page-dashboard" class="page active p-8 space-y-8">
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-6">
+        <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex items-start justify-between">
+          <div><p class="text-xs font-bold text-slate-500 uppercase tracking-wider">Total Equipe</p><h3 id="stat-total" class="text-3xl font-bold mt-2">3</h3></div>
+          <div class="bg-primary/10 text-primary p-3 rounded-lg"><span class="material-symbols-outlined">badge</span></div>
+        </div>
+        <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex items-start justify-between">
+          <div><p class="text-xs font-bold text-slate-500 uppercase tracking-wider">Presentes</p><h3 id="stat-presentes" class="text-3xl font-bold mt-2">0</h3><p id="stat-pct" class="text-xs text-slate-400 mt-1">0% da equipe</p></div>
+          <div class="bg-green-100 text-green-600 p-3 rounded-lg"><span class="material-symbols-outlined">check_circle</span></div>
+        </div>
+        <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex items-start justify-between">
+          <div><p class="text-xs font-bold text-slate-500 uppercase tracking-wider">Em Intervalo</p><h3 id="stat-intervalo" class="text-3xl font-bold mt-2">0</h3></div>
+          <div class="bg-yellow-100 text-yellow-600 p-3 rounded-lg"><span class="material-symbols-outlined">coffee</span></div>
+        </div>
+        <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex items-start justify-between">
+          <div><p class="text-xs font-bold text-slate-500 uppercase tracking-wider">Ausentes</p><h3 id="stat-ausentes" class="text-3xl font-bold mt-2">3</h3></div>
+          <div class="bg-red-100 text-red-600 p-3 rounded-lg"><span class="material-symbols-outlined">do_not_disturb_on</span></div>
+        </div>
+      </div>
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div class="lg:col-span-2 space-y-6">
+          <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <div class="px-6 py-4 border-b border-slate-200 flex justify-between items-center">
+              <h4 class="font-bold text-slate-800">Status em Tempo Real</h4>
+              <button onclick="showPage('relatorios')" class="text-primary text-sm font-bold hover:underline">Ver relatório →</button>
+            </div>
+            <table class="w-full text-left">
+              <thead class="bg-slate-50 text-slate-500 text-xs font-bold uppercase tracking-wider">
+                <tr><th class="px-6 py-3">Colaborador</th><th class="px-6 py-3">Status</th><th class="px-6 py-3">Turno</th><th class="px-6 py-3">Entrada</th><th class="px-6 py-3">Horas Hoje</th></tr>
+              </thead>
+              <tbody id="dash-table" class="divide-y divide-slate-100"></tbody>
+            </table>
+          </div>
+          <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+            <div class="flex items-center justify-between mb-6">
+              <div><h4 class="font-bold text-slate-800">Horas Trabalhadas — Semana</h4><p class="text-xs text-slate-500 mt-1">Total da equipe por dia</p></div>
+            </div>
+            <div id="week-chart" class="flex items-end justify-between h-40 gap-2"></div>
+          </div>
+        </div>
+        <div class="space-y-6">
+          <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+            <h4 class="font-bold text-slate-800 mb-5">Acesso Rápido</h4>
+            <div class="grid grid-cols-2 gap-3">
+              <button onclick="showPage('banco_horas')" class="flex flex-col items-center gap-2 p-4 rounded-xl border border-slate-100 hover:border-primary/40 hover:bg-primary/5 transition-all group"><div class="size-11 rounded-lg bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-all"><span class="material-symbols-outlined">account_balance</span></div><span class="text-xs font-bold text-slate-600">Banco Horas</span></button>
+              <button onclick="showPage('relatorios')" class="flex flex-col items-center gap-2 p-4 rounded-xl border border-slate-100 hover:border-primary/40 hover:bg-primary/5 transition-all group"><div class="size-11 rounded-lg bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-all"><span class="material-symbols-outlined">description</span></div><span class="text-xs font-bold text-slate-600">Relatórios</span></button>
+              <button onclick="showPage('funcionarios')" class="flex flex-col items-center gap-2 p-4 rounded-xl border border-slate-100 hover:border-primary/40 hover:bg-primary/5 transition-all group"><div class="size-11 rounded-lg bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-all"><span class="material-symbols-outlined">person_add</span></div><span class="text-xs font-bold text-slate-600">Funcionários</span></button>
+              <button onclick="showPage('configuracoes')" class="flex flex-col items-center gap-2 p-4 rounded-xl border border-slate-100 hover:border-primary/40 hover:bg-primary/5 transition-all group"><div class="size-11 rounded-lg bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-all"><span class="material-symbols-outlined">lock_reset</span></div><span class="text-xs font-bold text-slate-600">Alterar Senha</span></button>
+            </div>
+          </div>
+          <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+            <h4 class="font-bold text-slate-800 mb-4">Alertas do Dia</h4>
+            <div id="alertas-lista"><p class="text-center py-4 text-slate-400 text-sm">Nenhum alerta 🎉</p></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- ===== FUNCIONÁRIOS ===== -->
+    <div id="page-funcionarios" class="page p-8">
+      <div class="mb-8 flex items-center justify-between">
+        <div><h1 class="text-3xl font-extrabold tracking-tight">Gestão de Funcionários</h1><p class="mt-1 text-slate-500">Gerencie sua equipe.</p></div>
+        <button onclick="openModalFunc()" class="inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-bold text-white shadow-lg hover:bg-primary/90 transition-all">
+          <span class="material-symbols-outlined text-xl">person_add</span>Adicionar Funcionário
+        </button>
+      </div>
+      <div class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        <table class="w-full text-left">
+          <thead><tr class="bg-slate-50 text-slate-500">
+            <th class="px-6 py-4 text-xs font-semibold uppercase tracking-wider">Nome</th>
+            <th class="px-6 py-4 text-xs font-semibold uppercase tracking-wider">Cargo</th>
+            <th class="px-6 py-4 text-xs font-semibold uppercase tracking-wider">Turno / Horário</th>
+            <th class="px-6 py-4 text-xs font-semibold uppercase tracking-wider">Status Hoje</th>
+            <th class="px-6 py-4 text-right text-xs font-semibold uppercase tracking-wider">Ações</th>
+          </tr></thead>
+          <tbody id="func-table" class="divide-y divide-slate-200"></tbody>
+        </table>
+        <div class="px-6 py-4 bg-slate-50/30 border-t border-slate-200"><p id="func-count" class="text-sm text-slate-500"></p></div>
+      </div>
+    </div>
+    <!-- ===== RELATÓRIOS ===== -->
+    <div id="page-relatorios" class="page p-8">
+      <div class="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
+        <div><h1 class="text-3xl font-extrabold tracking-tight">Relatórios Mensais</h1><p class="mt-1 text-slate-500">Controle detalhado de horas.</p></div>
+        <div class="flex gap-3">
+          <button onclick="exportarCSV()" class="flex items-center gap-2 rounded-lg h-10 px-4 bg-white border border-slate-200 text-slate-700 text-sm font-bold hover:bg-slate-50 transition-all"><span class="material-symbols-outlined">table_chart</span>CSV</button>
+          <button onclick="exportarPDF()" class="flex items-center gap-2 rounded-lg h-10 px-4 bg-primary text-white text-sm font-bold hover:bg-primary/90 transition-all"><span class="material-symbols-outlined">picture_as_pdf</span>PDF</button>
+        </div>
+      </div>
+      <!-- Filtros -->
+      <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm mb-6 flex flex-wrap gap-4 items-end">
+        <div class="flex flex-col min-w-[160px] flex-1">
+          <label class="text-slate-700 text-xs font-bold uppercase tracking-wider pb-2">Mês</label>
+          <select id="filtro-mes" onchange="renderRelatorio()" class="rounded-lg border border-slate-200 bg-slate-50 h-11 px-3 text-sm focus:ring-2 focus:ring-primary">
+            <option value="0">Janeiro</option><option value="1">Fevereiro</option><option value="2">Março</option><option value="3">Abril</option><option value="4">Maio</option><option value="5">Junho</option><option value="6">Julho</option><option value="7">Agosto</option><option value="8">Setembro</option><option value="9">Outubro</option><option value="10">Novembro</option><option value="11">Dezembro</option>
+          </select>
+        </div>
+        <div class="flex flex-col min-w-[160px] flex-1">
+          <label class="text-slate-700 text-xs font-bold uppercase tracking-wider pb-2">Funcionário</label>
+          <select id="filtro-func" onchange="renderRelatorio()" class="rounded-lg border border-slate-200 bg-slate-50 h-11 px-3 text-sm focus:ring-2 focus:ring-primary">
+            <option value="todos">Todos</option>
+          </select>
+        </div>
+      </div>
+      <!-- Cards resumo -->
+      <div id="rel-cards" class="grid grid-cols-2 md:grid-cols-4 gap-5 mb-6"></div>
+      <!-- Gráfico por funcionário -->
+      <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6 mb-6">
+        <h3 class="font-bold text-slate-800 mb-6">Horas por Funcionário — Mês</h3>
+        <div id="rel-chart" class="space-y-4"></div>
+      </div>
+      <!-- Tabela -->
+      <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <div class="px-6 py-4 border-b border-slate-200"><h3 class="font-bold text-slate-800">Detalhamento de Registros</h3></div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left">
+            <thead class="bg-slate-50 text-slate-500 text-xs font-bold uppercase tracking-wider">
+              <tr><th class="px-5 py-3">Funcionário</th><th class="px-5 py-3">Data</th><th class="px-5 py-3">Entrada</th><th class="px-5 py-3">S. Int.</th><th class="px-5 py-3">V. Int.</th><th class="px-5 py-3">Saída</th><th class="px-5 py-3">Horas</th><th class="px-5 py-3">H. Extra</th><th class="px-5 py-3">Status</th></tr>
+            </thead>
+            <tbody id="rel-table" class="divide-y divide-slate-100"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <!-- ===== BANCO DE HORAS ===== -->
+    <div id="page-banco_horas" class="page p-8">
+      <div class="mb-8">
+        <h1 class="text-3xl font-extrabold tracking-tight">Banco de Horas</h1>
+        <p class="mt-1 text-slate-500">Saldo acumulado de horas extras e débitos.</p>
+      </div>
+      <div id="banco-cards" class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8"></div>
+      <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <div class="px-6 py-4 border-b border-slate-200"><h3 class="font-bold text-slate-800">Extrato por Funcionário</h3></div>
+        <div id="banco-table" class="divide-y divide-slate-100"></div>
+      </div>
+    </div>
+    <!-- ===== HISTÓRICO DE ALTERAÇÕES ===== -->
+    <div id="page-historico" class="page p-8">
+      <div class="mb-8 flex items-center justify-between">
+        <div><h1 class="text-3xl font-extrabold tracking-tight">Histórico de Alterações</h1><p class="mt-1 text-slate-500">Auditoria de todas as ações no sistema.</p></div>
+        <button onclick="limparHistorico()" class="flex items-center gap-2 rounded-lg h-10 px-4 bg-white border border-slate-200 text-red-500 text-sm font-bold hover:bg-red-50 transition-all"><span class="material-symbols-outlined">delete_sweep</span>Limpar Log</button>
+      </div>
+      <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left">
+            <thead class="bg-slate-50 text-slate-500 text-xs font-bold uppercase tracking-wider">
+              <tr><th class="px-6 py-3">Data/Hora</th><th class="px-6 py-3">Ação</th><th class="px-6 py-3">Funcionário</th><th class="px-6 py-3">Detalhe</th><th class="px-6 py-3">Tipo</th></tr>
+            </thead>
+            <tbody id="hist-table" class="divide-y divide-slate-100"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <!-- ===== TURNOS ===== -->
+    <div id="page-turnos" class="page p-8">
+      <div class="flex justify-between items-end pb-8">
+        <div><h1 class="text-3xl font-extrabold tracking-tight">Configuração de Turnos</h1><p class="mt-1 text-slate-500">Horários de entrada, intervalo e saída.</p></div>
+        <button onclick="resetFormTurno()" class="flex items-center gap-2 rounded-lg h-11 px-6 bg-primary text-white text-sm font-bold shadow-lg hover:bg-blue-700 transition-all"><span class="material-symbols-outlined">add</span>Novo Turno</button>
+      </div>
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <div class="lg:col-span-7">
+          <div class="flex items-center justify-between mb-5"><h2 class="text-xl font-bold">Turnos Cadastrados</h2><span id="turnos-count" class="bg-primary/10 text-primary text-xs font-bold px-2.5 py-1 rounded-full">0 Turnos</span></div>
+          <div id="turnos-lista" class="grid grid-cols-1 gap-4"></div>
+        </div>
+        <div class="lg:col-span-5">
+          <div class="bg-white rounded-xl border border-slate-200 shadow-md sticky top-24 overflow-hidden">
+            <div class="bg-primary px-6 py-4 flex items-center gap-3"><span class="material-symbols-outlined text-white">schedule</span><h2 class="text-white text-lg font-bold" id="form-turno-title">Novo Turno</h2></div>
+            <form id="form-turno" onsubmit="salvarTurno(event)" class="p-6 flex flex-col gap-4">
+              <input type="hidden" id="turno-edit-id"/>
+              <div><label class="text-sm font-semibold text-slate-700">Nome do Turno</label><input id="turno-nome" required class="mt-1 w-full rounded-lg border-slate-200 text-sm p-3" placeholder="Ex: Turno Manhã" type="text"/></div>
+              <div class="grid grid-cols-2 gap-4">
+                <div><label class="text-sm font-semibold text-slate-700">Entrada</label><input id="turno-entrada" required type="time" class="mt-1 w-full rounded-lg border-slate-200 text-sm p-3"/></div>
+                <div><label class="text-sm font-semibold text-slate-700">Saída Intervalo</label><input id="turno-saida-int" type="time" class="mt-1 w-full rounded-lg border-slate-200 text-sm p-3"/></div>
+                <div><label class="text-sm font-semibold text-slate-700">Volta Intervalo</label><input id="turno-volta-int" type="time" class="mt-1 w-full rounded-lg border-slate-200 text-sm p-3"/></div>
+                <div><label class="text-sm font-semibold text-slate-700">Saída</label><input id="turno-saida" required type="time" class="mt-1 w-full rounded-lg border-slate-200 text-sm p-3"/></div>
+              </div>
+              <div><label class="text-sm font-semibold text-slate-700">Tolerância de Atraso (min)</label><input id="turno-tolerancia" type="number" value="5" min="0" max="60" class="mt-1 w-full rounded-lg border-slate-200 text-sm p-3"/></div>
+              <div class="flex gap-3 pt-2 border-t border-slate-100">
+                <button type="button" onclick="resetFormTurno()" class="flex-1 rounded-lg h-11 border border-slate-200 text-slate-600 font-bold text-sm hover:bg-slate-50">Limpar</button>
+                <button type="submit" class="flex-1 rounded-lg h-11 bg-primary text-white font-bold text-sm hover:bg-blue-700 shadow-md">Salvar Turno</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- ===== ALTERAR SENHA ===== -->
+    <div id="page-configuracoes" class="page">
+      <div class="flex flex-col items-center p-6 lg:p-10 gap-6 max-w-lg mx-auto w-full">
+        <div class="w-full bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+          <div class="px-6 py-4 border-b border-slate-200">
+            <h3 class="font-bold text-slate-800 flex items-center gap-2">
+              <span class="material-symbols-outlined text-primary">lock_reset</span>Alterar Senha do Administrador
+            </h3>
+          </div>
+          <div class="p-6 space-y-4">
+            <div>
+              <label class="block text-sm font-semibold mb-1.5 text-slate-700">Senha Atual</label>
+              <input id="cfg-senha-atual" type="password" placeholder="Digite a senha atual"
+                class="w-full rounded-lg border-slate-200 text-sm p-3 border focus:ring-2 focus:ring-primary focus:border-primary outline-none transition"/>
+            </div>
+            <div>
+              <label class="block text-sm font-semibold mb-1.5 text-slate-700">Nova Senha</label>
+              <input id="cfg-senha-nova" type="password" placeholder="Digite a nova senha"
+                class="w-full rounded-lg border-slate-200 text-sm p-3 border focus:ring-2 focus:ring-primary focus:border-primary outline-none transition"/>
+            </div>
+            <div>
+              <label class="block text-sm font-semibold mb-1.5 text-slate-700">Confirmar Nova Senha</label>
+              <input id="cfg-senha-confirma" type="password" placeholder="Repita a nova senha"
+                class="w-full rounded-lg border-slate-200 text-sm p-3 border focus:ring-2 focus:ring-primary focus:border-primary outline-none transition"/>
+            </div>
+            <p id="cfg-senha-erro" class="text-red-600 text-sm font-semibold hidden"></p>
+            <button onclick="alterarSenhaAdmin()" class="w-full py-3 text-sm font-bold text-white bg-primary hover:bg-primary/90 rounded-lg shadow-md transition-all">
+              Salvar Nova Senha
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+<!-- ===== FIM DO PAINEL ADMIN ===== -->
+</div><!-- fecha .flex.min-h-screen -->
+</div><!-- fecha #painel-admin -->
+
+<!-- ===== MODAL FUNCIONÁRIO ===== -->
+<div id="modal-func" class="modal-overlay fixed inset-0 z-50 items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+  <div class="w-full max-w-md bg-white rounded-xl shadow-2xl overflow-hidden">
+    <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+      <h3 id="modal-func-title" class="text-lg font-bold">Adicionar Funcionário</h3>
+      <button onclick="closeModalFunc()" class="text-slate-400 hover:text-slate-600"><span class="material-symbols-outlined">close</span></button>
+    </div>
+    <div class="p-6 space-y-4">
+      <input type="hidden" id="func-edit-id"/>
+      <div><label class="block text-sm font-semibold mb-1.5 text-slate-700">Nome Completo *</label><input id="func-nome" class="w-full rounded-lg border-slate-200 text-sm p-3" placeholder="Ex: João Silva" type="text"/></div>
+      <div class="grid grid-cols-2 gap-4">
+        <div><label class="block text-sm font-semibold mb-1.5 text-slate-700">Cargo</label><input id="func-cargo" class="w-full rounded-lg border-slate-200 text-sm p-3" placeholder="Ex: Vendedor" type="text"/></div>
+        <div><label class="block text-sm font-semibold mb-1.5 text-slate-700">Turno *</label><select id="func-turno" class="w-full rounded-lg border-slate-200 text-sm p-3"><option value="">Selecione...</option></select></div>
+      </div>
+      <div><label class="block text-sm font-semibold mb-1.5 text-slate-700">Carga Horária Diária (horas)</label><input id="func-carga" type="number" value="8" min="1" max="24" class="w-full rounded-lg border-slate-200 text-sm p-3"/></div>
+    </div>
+    <div class="px-6 py-4 bg-slate-50 flex justify-end gap-3">
+      <button onclick="closeModalFunc()" class="px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100 rounded-lg">Cancelar</button>
+      <button onclick="salvarFuncionario()" class="px-6 py-2 text-sm font-bold text-white bg-primary hover:bg-primary/90 rounded-lg shadow-md">Salvar</button>
+    </div>
+  </div>
+</div>
+<!-- ===== TOAST ===== -->
+<div id="toast" class="toast fixed bottom-8 right-8 bg-green-600 text-white px-6 py-4 rounded-xl shadow-2xl flex items-center gap-4 z-50">
+  <span id="toast-icon" class="material-symbols-outlined">task_alt</span>
+  <div><p id="toast-title" class="font-bold leading-tight">Sucesso!</p><p id="toast-msg" class="text-sm opacity-90">Operação realizada.</p></div>
+</div>
+<script>
+// ============================================================
+// ESTADO E PERSISTÊNCIA
+// ============================================================
+const STORAGE_KEY = 'fs_ponto_v2';
+
+// Inicializar cliente Supabase
+const supabaseUrl = 'https://ebhzsddqmjnxzcecgyrv.supabase.co';
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdWhhYmUiLCJyZWYiOiJzYWVhc3QtMSIsImF1ZCI6ImF1dGhlbnRpY2F0ZWQiLCJpYXQiOjE3MzEwNDM2ODB9.eyJpc3MiOiJzdWhhYmUiLCJyZWYiOiJzYWVhc3QtMSIsImF1ZCI6ImF1dGhlbnRpY2F0ZWQiLCJpYXQiOjE3MzEwNDM2ODB9';
+let supabase = null;
+
+// Inicializar Supabase quando possível
+if (typeof window.supabase !== 'undefined') {
+  supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+}
+
+function loadState() {
+  try {
+    const s = localStorage.getItem(STORAGE_KEY);
+    if (s) return JSON.parse(s);
+  } catch(e) {}
+  return null;
+}
+
+async function saveState() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    // Tentar salvar no Supabase se disponível
+    if (supabase) {
+      await supabase.from('app_state').upsert({
+        id: 1,
+        data: state,
+        updated_at: new Date().toISOString()
+      });
+    }
+  } catch(e) {
+    console.warn('Erro ao salvar estado:', e);
+  }
+}
+const defaultState = {
+  funcionarios: [
+    { id:1, nome:'João Silva', cargo:'Vendedor', turno:'Manhã', carga:8, cor:'bg-primary/20 text-primary' },
+    { id:2, nome:'Maria Santos', cargo:'Caixa', turno:'Tarde', carga:8, cor:'bg-indigo-100 text-indigo-600' },
+    { id:3, nome:'Pedro Oliveira', cargo:'Estoquista', turno:'Integral', carga:8, cor:'bg-amber-100 text-amber-600' },
+  ],
+  turnos: [
+    { id:1, nome:'Manhã', entrada:'08:00', saida_int:'12:00', volta_int:'13:00', saida:'17:00', tolerancia:5 },
+    { id:2, nome:'Tarde', entrada:'13:00', saida_int:'17:00', volta_int:'18:00', saida:'22:00', tolerancia:5 },
+    { id:3, nome:'Integral', entrada:'08:00', saida_int:'12:00', volta_int:'13:00', saida:'18:00', tolerancia:5 },
+  ],
+  registros: [],
+  historico: [],
+  config: { senhaAdmin: btoa('admin123') },
+  sessao: { tipo: null, funcId: null },
+  nextFuncId: 4,
+  nextTurnoId: 4,
+};
+let state = loadState() || JSON.parse(JSON.stringify(defaultState));
+// Migração: garante que dados antigos tenham os novos campos
+if (!state.config) state.config = { senhaAdmin: btoa('admin123') };
+if (!state.sessao) state.sessao = { tipo: null, funcId: null };
+// ============================================================
+// UTILITÁRIOS
+// ============================================================
+const DIAS = ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
+const MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+const TIPOS = {
+  entrada:        { label:'Entrada',          icon:'login',             color:'bg-green-100 text-green-600' },
+  saida_intervalo:{ label:'Saída Intervalo',  icon:'restaurant',        color:'bg-yellow-100 text-yellow-600' },
+  volta_intervalo:{ label:'Volta Intervalo',  icon:'assignment_return', color:'bg-blue-100 text-blue-600' },
+  saida:          { label:'Saída',            icon:'logout',            color:'bg-slate-100 text-slate-600' },
+};
+function nowStr() { return new Date().toTimeString().slice(0,5); }
+function todayStr() { return new Date().toISOString().slice(0,10); }
+function nowFull() { return new Date().toLocaleString('pt-BR'); }
+function formatDate(d) { const [y,m,day]=d.split('-'); return `${day}/${m}/${y}`; }
+function iniciais(n) { return n.split(' ').map(p=>p[0]).join('').slice(0,2).toUpperCase(); }
+function timeToMin(t) {
+  if (!t) return 0;
+  const [h,m] = t.split(':').map(Number);
+  return h*60+m;
+}
+function diffMin(a,b) { return timeToMin(b) - timeToMin(a); }
+function minToHHMM(min) {
+  if (min <= 0) return '00h 00m';
+  const h = Math.floor(min/60), m = min%60;
+  return `${String(h).padStart(2,'0')}h ${String(m).padStart(2,'0')}m`;
+}
+function minToHHMMSigned(min) {
+  const sign = min < 0 ? '-' : '+';
+  return sign + minToHHMM(Math.abs(min));
+}
+function getTurno(nome) { return state.turnos.find(t=>t.nome===nome); }
+function getFuncTurno(f) { return getTurno(f.turno); }
+// ============================================================
+// CÁLCULO DE HORAS
+// ============================================================
+function calcHorasDia(funcId, data) {
+  const regs = state.registros.filter(r=>r.funcId===funcId && r.data===data);
+  const entrada = regs.find(r=>r.tipo==='entrada');
+  const saida = regs.find(r=>r.tipo==='saida');
+  const si = regs.find(r=>r.tipo==='saida_intervalo');
+  const vi = regs.find(r=>r.tipo==='volta_intervalo');
+  if (!entrada) return 0;
+  const ref = saida ? saida.hora : nowStr();
+  let total = diffMin(entrada.hora, ref);
+  if (si && vi) total -= diffMin(si.hora, vi.hora);
+  else if (si && !vi && !saida) total -= diffMin(si.hora, nowStr());
+  return Math.max(0, total);
+}
+function calcHorasExtra(funcId, data) {
+  const func = state.funcionarios.find(f=>f.id===funcId);
+  if (!func) return 0;
+  const trabalhado = calcHorasDia(funcId, data);
+  const esperado = (func.carga || 8) * 60;
+  const regs = state.registros.filter(r=>r.funcId===funcId && r.data===data);
+  const saida = regs.find(r=>r.tipo==='saida');
+  if (!saida) return 0;
+  return trabalhado - esperado;
+}
+function getStatusHoje(funcId) {
+  const regs = state.registros.filter(r=>r.funcId===funcId && r.data===todayStr());
+  if (!regs.length) return { status:'Ausente', cor:'bg-slate-100 text-slate-700', ultima:'—', entrada:'—' };
+  const ultimo = regs[regs.length-1];
+  const entrada = regs.find(r=>r.tipo==='entrada');
+  const map = {
+    entrada:         { status:'Presente',  cor:'bg-green-100 text-green-800',  ultima:'Entrada' },
+    saida_intervalo: { status:'Intervalo', cor:'bg-yellow-100 text-yellow-800', ultima:'Saída Intervalo' },
+    volta_intervalo: { status:'Presente',  cor:'bg-green-100 text-green-800',  ultima:'Volta Intervalo' },
+    saida:           { status:'Saiu',      cor:'bg-slate-100 text-slate-800',  ultima:'Saída' },
+  };
+  const info = map[ultimo.tipo] || { status:'—', cor:'bg-slate-100 text-slate-800', ultima:'—' };
+  return { ...info, entrada: entrada ? entrada.hora : '—' };
+}
+// ============================================================
+// RELÓGIO (todas as telas)
+// ============================================================
+function updateClock() {
+  const n = new Date();
+  const hh = String(n.getHours()).padStart(2,'0');
+  const mm = String(n.getMinutes()).padStart(2,'0');
+  const ss = String(n.getSeconds()).padStart(2,'0');
+  const dateStr = `${DIAS[n.getDay()]}, ${String(n.getDate()).padStart(2,'0')} de ${MESES[n.getMonth()]} de ${n.getFullYear()} · Brasília (GMT-3)`;
+  // Tela pública
+  const pH = document.getElementById('pub-clock-h');
+  const pM = document.getElementById('pub-clock-m');
+  const pS = document.getElementById('pub-clock-s');
+  const pD = document.getElementById('pub-clock-date');
+  if (pH) pH.textContent = hh;
+  if (pM) pM.textContent = mm;
+  if (pS) pS.textContent = ss;
+  if (pD) pD.textContent = dateStr;
+  // Tela do funcionário
+  const fH = document.getElementById('func-clock-h');
+  const fM = document.getElementById('func-clock-m');
+  const fS = document.getElementById('func-clock-s');
+  const fD = document.getElementById('func-clock-date');
+  if (fH) fH.textContent = hh;
+  if (fM) fM.textContent = mm;
+  if (fS) fS.textContent = ss;
+  if (fD) fD.textContent = dateStr;
+}
+setInterval(updateClock, 1000);
+updateClock();
+const nd = new Date();
+const headerDateEl = document.getElementById('header-date');
+if (headerDateEl) headerDateEl.textContent =
+  `${DIAS[nd.getDay()]}, ${nd.getDate()} de ${MESES[nd.getMonth()]} de ${nd.getFullYear()}`;
+// ============================================================
+// NAVEGAÇÃO
+// ============================================================
+const PAGE_TITLES = { dashboard:'Dashboard', funcionarios:'Funcionários', relatorios:'Relatórios', banco_horas:'Banco de Horas', historico:'Histórico de Alterações', turnos:'Turnos', configuracoes:'Alterar Senha' };
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-link').forEach(l=>{ l.classList.remove('active-link'); l.classList.add('text-slate-600'); });
+  document.getElementById('page-'+name).classList.add('active');
+  const link = document.querySelector(`[data-page="${name}"]`);
+  if (link) { link.classList.add('active-link'); link.classList.remove('text-slate-600'); }
+  document.getElementById('page-title').textContent = PAGE_TITLES[name] || name;
+  const renders = { dashboard:renderDashboard, funcionarios:renderFuncionarios, relatorios:renderRelatorio, banco_horas:renderBancoHoras, historico:renderHistorico, turnos:renderTurnos, configuracoes:renderConfiguracoes };
+  if (renders[name]) renders[name]();
+}
+document.querySelector('[data-page="dashboard"]').classList.add('active-link');
+document.querySelector('[data-page="dashboard"]').classList.remove('text-slate-600');
+// ============================================================
+// DASHBOARD
+// ============================================================
+function renderDashboard() {
+  const todos = state.funcionarios;
+  let presentes=0, intervalo=0;
+  todos.forEach(f=>{ const s=getStatusHoje(f.id); if(s.status==='Presente') presentes++; if(s.status==='Intervalo') intervalo++; });
+  const ausentes = todos.length - presentes - intervalo - todos.filter(f=>getStatusHoje(f.id).status==='Saiu').length;
+  document.getElementById('stat-total').textContent = todos.length;
+  document.getElementById('stat-presentes').textContent = presentes;
+  document.getElementById('stat-pct').textContent = `${Math.round(presentes/todos.length*100)||0}% da equipe`;
+  document.getElementById('stat-intervalo').textContent = intervalo;
+  document.getElementById('stat-ausentes').textContent = Math.max(0, ausentes);
+  // Tabela
+  document.getElementById('dash-table').innerHTML = todos.map(f => {
+    const s = getStatusHoje(f.id);
+    const t = getFuncTurno(f);
+    const mins = calcHorasDia(f.id, todayStr());
+    return `<tr class="hover:bg-slate-50 transition-colors">
+      <td class="px-6 py-4 flex items-center gap-3"><div class="size-8 rounded-full ${f.cor} flex items-center justify-center font-bold text-xs">${iniciais(f.nome)}</div><span class="text-sm font-semibold">${f.nome}</span></td>
+      <td class="px-6 py-4"><span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${s.cor}">${s.status}</span></td>
+      <td class="px-6 py-4 text-xs text-slate-500">${t ? `${f.turno}<br><span class="font-bold">${t.entrada}–${t.saida}</span>` : '—'}</td>
+      <td class="px-6 py-4 text-sm text-slate-500">${s.entrada}</td>
+      <td class="px-6 py-4 text-sm font-semibold text-slate-700">${minToHHMM(mins)}</td>
+    </tr>`;
+  }).join('');
+  // Gráfico semana
+  const chart = document.getElementById('week-chart');
+  const dias = [];
+  for(let i=6;i>=0;i--){ const d=new Date(); d.setDate(d.getDate()-i); dias.push(d.toISOString().slice(0,10)); }
+  const labels = dias.map((d,i)=>i===6?'HOJE':DIAS[new Date(d+'T12:00:00').getDay()].slice(0,3).toUpperCase());
+  const totais = dias.map(d=>{ let t=0; state.funcionarios.forEach(f=>t+=calcHorasDia(f.id,d)); return t; });
+  const max = Math.max(...totais, 60);
+  chart.innerHTML = dias.map((d,i)=>{
+    const pct=Math.round(totais[i]/max*100)||2;
+    const isHoje=i===6;
+    return `<div class="flex flex-col items-center flex-1 gap-2 group">
+      <div class="w-full bg-slate-100 rounded-t-lg h-full flex items-end">
+        <div class="w-full ${isHoje?'bg-primary':'bg-primary/40 group-hover:bg-primary'} rounded-t-lg bar-chart-bar" style="height:${pct}%"></div>
+      </div>
+      <span class="text-[10px] font-bold ${isHoje?'text-slate-900':'text-slate-400'}">${labels[i]}</span>
+    </div>`;
+  }).join('');
+  // Alertas com validação de turno
+  const alertas = [];
+  state.funcionarios.forEach(f=>{
+    const s = getStatusHoje(f.id);
+    const t = getFuncTurno(f);
+    if (s.status==='Ausente') alertas.push({cor:'red', msg:`${f.nome} não registrou ponto hoje.`});
+    if (t && s.entrada !== '—') {
+      const atraso = diffMin(t.entrada, s.entrada) - (t.tolerancia||5);
+      if (atraso > 0) alertas.push({cor:'yellow', msg:`${f.nome} chegou ${atraso}min atrasado(a). Turno: ${t.entrada}, Entrada: ${s.entrada}.`});
+    }
+  });
+  const al = document.getElementById('alertas-lista');
+  al.innerHTML = alertas.length ? alertas.map(a=>`
+    <div class="flex gap-3 items-start pb-3 border-b border-slate-50 last:border-0">
+      <div class="size-2 rounded-full bg-${a.cor}-500 mt-2 shrink-0"></div>
+      <p class="text-sm text-slate-600">${a.msg}</p>
+    </div>`).join('') : '<p class="text-center py-4 text-slate-400 text-sm">Nenhum alerta 🎉</p>';
+}
+// ============================================================
+// FUNCIONÁRIOS
+// ============================================================
+function renderFuncionarios() {
+  const tbody = document.getElementById('func-table');
+  tbody.innerHTML = state.funcionarios.map(f=>{
+    const s = getStatusHoje(f.id);
+    const t = getFuncTurno(f);
+    const horario = t ? `${t.entrada}–${t.saida}` : '—';
+    return `<tr class="hover:bg-slate-50 transition-colors group">
+      <td class="px-6 py-4"><div class="flex items-center gap-3"><div class="h-10 w-10 rounded-full ${f.cor} flex items-center justify-center font-bold text-sm">${iniciais(f.nome)}</div><div><p class="font-semibold">${f.nome}</p><p class="text-xs text-slate-500">ID: ${f.id} · ${f.carga||8}h/dia</p></div></div></td>
+      <td class="px-6 py-4 text-sm text-slate-600">${f.cargo}</td>
+      <td class="px-6 py-4"><span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600">${f.turno}</span><p class="text-xs text-slate-400 mt-1">${horario}</p></td>
+      <td class="px-6 py-4"><span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${s.cor}">${s.status}</span></td>
+      <td class="px-6 py-4 text-right"><div class="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+        <button onclick="editarFuncionario(${f.id})" class="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-lg"><span class="material-symbols-outlined text-xl">edit</span></button>
+        <button onclick="excluirFuncionario(${f.id})" class="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg"><span class="material-symbols-outlined text-xl">delete</span></button>
+      </div></td>
+    </tr>`;
+  }).join('');
+  document.getElementById('func-count').textContent = `${state.funcionarios.length} funcionário(s)`;
+}
+function openModalFunc() {
+  document.getElementById('modal-func-title').textContent = 'Adicionar Funcionário';
+  document.getElementById('func-edit-id').value = '';
+  document.getElementById('func-nome').value = '';
+  document.getElementById('func-cargo').value = '';
+  document.getElementById('func-carga').value = 8;
+  const sel = document.getElementById('func-turno');
+  sel.innerHTML = '<option value="">Selecione...</option>';
+  state.turnos.forEach(t=>sel.innerHTML+=`<option value="${t.nome}">${t.nome} (${t.entrada}–${t.saida})</option>`);
+  document.getElementById('modal-func').classList.add('open');
+}
+function closeModalFunc() { document.getElementById('modal-func').classList.remove('open'); }
+function salvarFuncionario() {
+  const nome = document.getElementById('func-nome').value.trim();
+  const cargo = document.getElementById('func-cargo').value.trim();
+  const turno = document.getElementById('func-turno').value;
+  const carga = parseInt(document.getElementById('func-carga').value) || 8;
+  if (!nome) { showToast('Atenção!', 'Nome é obrigatório.', 'bg-yellow-500', 'warning'); return; }
+  const editId = parseInt(document.getElementById('func-edit-id').value);
+  const cores = ['bg-primary/20 text-primary','bg-indigo-100 text-indigo-600','bg-amber-100 text-amber-600','bg-emerald-100 text-emerald-600','bg-rose-100 text-rose-600','bg-purple-100 text-purple-600'];
+  if (editId) {
+    const f = state.funcionarios.find(f=>f.id===editId);
+    if (f) { f.nome=nome; f.cargo=cargo; f.turno=turno; f.carga=carga; }
+    addHistorico('cadastro', editId, `Funcionário editado: ${nome}`);
+  } else {
+    const newF = { id:state.nextFuncId++, nome, cargo, turno, carga, cor:cores[state.funcionarios.length%cores.length] };
+    state.funcionarios.push(newF);
+    addHistorico('cadastro', newF.id, `Funcionário cadastrado: ${nome}`);
+  }
+  saveState(); closeModalFunc(); renderFuncionarios();
+  showToast('Salvo!', `${nome} salvo com sucesso.`);
+}
+function editarFuncionario(id) {
+  const f = state.funcionarios.find(f=>f.id===id);
+  if (!f) return;
+  document.getElementById('modal-func-title').textContent = 'Editar Funcionário';
+  document.getElementById('func-edit-id').value = f.id;
+  document.getElementById('func-nome').value = f.nome;
+  document.getElementById('func-cargo').value = f.cargo;
+  document.getElementById('func-carga').value = f.carga||8;
+  const sel = document.getElementById('func-turno');
+  sel.innerHTML = '<option value="">Selecione...</option>';
+  state.turnos.forEach(t=>sel.innerHTML+=`<option value="${t.nome}" ${t.nome===f.turno?'selected':''}>${t.nome} (${t.entrada}–${t.saida})</option>`);
+  document.getElementById('modal-func').classList.add('open');
+}
+function excluirFuncionario(id) {
+  const f = state.funcionarios.find(f=>f.id===id);
+  if (!confirm(`Excluir ${f?.nome}?`)) return;
+  addHistorico('cadastro', id, `Funcionário excluído: ${f?.nome}`);
+  state.funcionarios = state.funcionarios.filter(f=>f.id!==id);
+  saveState(); renderFuncionarios();
+  showToast('Removido!', 'Funcionário excluído.', 'bg-red-600', 'delete');
+}
+// ============================================================
+// RELATÓRIOS
+// ============================================================
+function getRowsRelatorio(mes, ano, funcFiltro) {
+  const regsDoMes = state.registros.filter(r=>{
+    const d = new Date(r.data+'T12:00:00');
+    return d.getMonth()===mes && d.getFullYear()===ano && (funcFiltro==='todos' || String(r.funcId)===funcFiltro);
+  });
+  const dias = {};
+  regsDoMes.forEach(r=>{ const k=`${r.funcId}_${r.data}`; if(!dias[k]) dias[k]={funcId:r.funcId,data:r.data,regs:[]}; dias[k].regs.push(r); });
+  return Object.values(dias).sort((a,b)=>a.data.localeCompare(b.data));
+}
+function renderRelatorio() {
+  const mes = parseInt(document.getElementById('filtro-mes').value);
+  const funcFiltro = document.getElementById('filtro-func').value || 'todos';
+  const ano = new Date().getFullYear();
+  const selFunc = document.getElementById('filtro-func');
+  const valAtual = selFunc.value;
+  selFunc.innerHTML = '<option value="todos">Todos</option>';
+  state.funcionarios.forEach(f=>selFunc.innerHTML+=`<option value="${f.id}" ${String(f.id)===valAtual?'selected':''}>${f.nome}</option>`);
+  const rows = getRowsRelatorio(mes, ano, funcFiltro);
+  let totalHoras=0, diasTrab=0, totalExtra=0;
+  rows.forEach(d=>{
+    const mins = calcHorasDia(d.funcId, d.data);
+    const saida = d.regs.find(r=>r.tipo==='saida');
+    if (saida) { totalHoras+=mins; diasTrab++; totalExtra+=calcHorasExtra(d.funcId,d.data); }
+  });
+  // Cards
+  document.getElementById('rel-cards').innerHTML = `
+    <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-start justify-between">
+      <div><p class="text-xs font-bold text-slate-500 uppercase tracking-wider">Total Horas</p><h3 class="text-2xl font-bold mt-1">${minToHHMM(totalHoras)}</h3></div>
+      <div class="bg-primary/10 text-primary p-3 rounded-lg"><span class="material-symbols-outlined">timer</span></div>
+    </div>
+    <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-start justify-between">
+      <div><p class="text-xs font-bold text-slate-500 uppercase tracking-wider">Dias Trabalhados</p><h3 class="text-2xl font-bold mt-1">${diasTrab}</h3></div>
+      <div class="bg-green-100 text-green-600 p-3 rounded-lg"><span class="material-symbols-outlined">event_available</span></div>
+    </div>
+    <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-start justify-between">
+      <div><p class="text-xs font-bold text-slate-500 uppercase tracking-wider">Horas Extras</p><h3 class="text-2xl font-bold mt-1 ${totalExtra>=0?'text-green-600':'text-red-600'}">${minToHHMMSigned(totalExtra)}</h3></div>
+      <div class="${totalExtra>=0?'bg-green-100 text-green-600':'bg-red-100 text-red-600'} p-3 rounded-lg"><span class="material-symbols-outlined">trending_up</span></div>
+    </div>
+    <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-start justify-between">
+      <div><p class="text-xs font-bold text-slate-500 uppercase tracking-wider">Média Diária</p><h3 class="text-2xl font-bold mt-1">${diasTrab?minToHHMM(Math.round(totalHoras/diasTrab)):'—'}</h3></div>
+      <div class="bg-blue-100 text-blue-600 p-3 rounded-lg"><span class="material-symbols-outlined">avg_time</span></div>
+    </div>`;
+  // Gráfico por funcionário
+  const funcsFiltradas = funcFiltro==='todos' ? state.funcionarios : state.funcionarios.filter(f=>String(f.id)===funcFiltro);
+  const maxHorasFunc = Math.max(...funcsFiltradas.map(f=>{
+    const total = rows.filter(d=>d.funcId===f.id).reduce((acc,d)=>acc+calcHorasDia(f.id,d.data),0);
+    return total;
+  }), 1);
+  document.getElementById('rel-chart').innerHTML = funcsFiltradas.map(f=>{
+    const totalF = rows.filter(d=>d.funcId===f.id).reduce((acc,d)=>acc+calcHorasDia(f.id,d.data),0);
+    const pct = Math.round(totalF/maxHorasFunc*100);
+    const esperado = rows.filter(d=>d.funcId===f.id && d.regs.find(r=>r.tipo==='saida')).length * (f.carga||8) * 60;
+    const extra = totalF - esperado;
+    return `<div class="flex items-center gap-4">
+      <div class="w-32 text-sm font-semibold text-slate-700 truncate">${f.nome}</div>
+      <div class="flex-1 bg-slate-100 rounded-full h-6 overflow-hidden">
+        <div class="h-full rounded-full ${extra>0?'bg-green-500':extra<0?'bg-red-400':'bg-primary'} bar-chart-bar flex items-center justify-end pr-3" style="width:${Math.max(pct,2)}%">
+          <span class="text-white text-xs font-bold">${minToHHMM(totalF)}</span>
+        </div>
+      </div>
+      <span class="text-xs font-bold w-16 text-right ${extra>0?'text-green-600':extra<0?'text-red-500':'text-slate-500'}">${extra!==0?minToHHMMSigned(extra):''}</span>
+    </div>`;
+  }).join('');
+  // Tabela
+  if (!rows.length) {
+    document.getElementById('rel-table').innerHTML = '<tr><td colspan="9" class="px-6 py-12 text-center text-slate-400">Nenhum registro no período</td></tr>'; return;
+  }
+  document.getElementById('rel-table').innerHTML = rows.map(d=>{
+    const func = state.funcionarios.find(f=>f.id===d.funcId);
+    const entrada = d.regs.find(r=>r.tipo==='entrada');
+    const si = d.regs.find(r=>r.tipo==='saida_intervalo');
+    const vi = d.regs.find(r=>r.tipo==='volta_intervalo');
+    const saida = d.regs.find(r=>r.tipo==='saida');
+    const mins = saida ? calcHorasDia(d.funcId, d.data) : 0;
+    const extra = saida ? calcHorasExtra(d.funcId, d.data) : 0;
+    const completo = entrada && saida;
+    const statusLabel = completo?'Completo':entrada?'Incompleto':'Ausente';
+    const statusColor = completo?'bg-green-100 text-green-700':entrada?'bg-yellow-100 text-yellow-700':'bg-red-100 text-red-700';
+    const extraClass = extra>0?'horas-extra':extra<0?'horas-falta':'';
+    return `<tr class="hover:bg-slate-50 transition-colors">
+      <td class="px-5 py-3 text-sm font-semibold">${func?.nome||'—'}</td>
+      <td class="px-5 py-3 text-sm text-slate-600">${formatDate(d.data)}</td>
+      <td class="px-5 py-3 text-sm">${entrada?entrada.hora:'—'}</td>
+      <td class="px-5 py-3 text-sm">${si?si.hora:'—'}</td>
+      <td class="px-5 py-3 text-sm">${vi?vi.hora:'—'}</td>
+      <td class="px-5 py-3 text-sm">${saida?saida.hora:'—'}</td>
+      <td class="px-5 py-3 text-sm font-bold">${mins?minToHHMM(mins):'—'}</td>
+      <td class="px-5 py-3"><span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${extraClass||'bg-slate-100 text-slate-500'}">${extra!==0?minToHHMMSigned(extra):'—'}</span></td>
+      <td class="px-5 py-3"><span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${statusColor}">${statusLabel}</span></td>
+    </tr>`;
+  }).join('');
+}
+// ============================================================
+// BANCO DE HORAS
+// ============================================================
+function renderBancoHoras() {
+  const ano = new Date().getFullYear();
+  let totalExtra=0, totalFalta=0;
+  const funcData = state.funcionarios.map(f=>{
+    let saldo = 0;
+    for(let m=0;m<=new Date().getMonth();m++){
+      const rows = getRowsRelatorio(m, ano, String(f.id));
+      rows.forEach(d=>{ saldo += calcHorasExtra(f.id, d.data); });
+    }
+    if (saldo>0) totalExtra+=saldo; else totalFalta+=saldo;
+    return { func:f, saldo };
+  });
+  document.getElementById('banco-cards').innerHTML = `
+    <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex items-start justify-between">
+      <div><p class="text-xs font-bold text-slate-500 uppercase tracking-wider">Saldo Positivo</p><h3 class="text-2xl font-bold mt-2 text-green-600">+${minToHHMM(totalExtra)}</h3><p class="text-xs text-slate-400 mt-1">Horas extras acumuladas</p></div>
+      <div class="bg-green-100 text-green-600 p-3 rounded-lg"><span class="material-symbols-outlined">trending_up</span></div>
+    </div>
+    <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex items-start justify-between">
+      <div><p class="text-xs font-bold text-slate-500 uppercase tracking-wider">Saldo Negativo</p><h3 class="text-2xl font-bold mt-2 text-red-600">${minToHHMMSigned(totalFalta)}</h3><p class="text-xs text-slate-400 mt-1">Horas em débito</p></div>
+      <div class="bg-red-100 text-red-600 p-3 rounded-lg"><span class="material-symbols-outlined">trending_down</span></div>
+    </div>
+    <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex items-start justify-between">
+      <div><p class="text-xs font-bold text-slate-500 uppercase tracking-wider">Saldo Líquido</p><h3 class="text-2xl font-bold mt-2 ${totalExtra+totalFalta>=0?'text-green-600':'text-red-600'}">${minToHHMMSigned(totalExtra+totalFalta)}</h3></div>
+      <div class="bg-primary/10 text-primary p-3 rounded-lg"><span class="material-symbols-outlined">account_balance</span></div>
+    </div>`;
+  document.getElementById('banco-table').innerHTML = funcData.map(({func,saldo})=>{
+    const cor = saldo>0?'horas-extra':saldo<0?'horas-falta':'horas-ok';
+    const label = saldo>0?'Crédito':saldo<0?'Débito':'Equilibrado';
+    return `<div class="px-6 py-5 flex items-center justify-between hover:bg-slate-50 transition-colors">
+      <div class="flex items-center gap-4">
+        <div class="h-11 w-11 rounded-full ${func.cor} flex items-center justify-center font-bold">${iniciais(func.nome)}</div>
+        <div><p class="font-semibold">${func.nome}</p><p class="text-xs text-slate-500">${func.cargo} · ${func.carga||8}h/dia</p></div>
+      </div>
+      <div class="text-right">
+        <p class="text-xl font-black ${saldo>0?'text-green-600':saldo<0?'text-red-600':'text-slate-600'}">${minToHHMMSigned(saldo)}</p>
+        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${cor}">${label}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+// ============================================================
+// HISTÓRICO DE ALTERAÇÕES
+// ============================================================
+function addHistorico(tipo, funcId, detalhe) {
+  const func = state.funcionarios.find(f=>f.id===funcId);
+  state.historico.unshift({ dataHora:nowFull(), tipo, funcNome:func?.nome||'—', detalhe, id:Date.now() });
+  if (state.historico.length > 200) state.historico = state.historico.slice(0,200);
+}
+function renderHistorico() {
+  const tbody = document.getElementById('hist-table');
+  if (!state.historico.length) {
+    tbody.innerHTML = '<tr><td colspan="5" class="px-6 py-12 text-center text-slate-400">Nenhuma ação registrada ainda</td></tr>'; return;
+  }
+  const tipoCores = { ponto:'bg-blue-100 text-blue-700', cadastro:'bg-purple-100 text-purple-700' };
+  tbody.innerHTML = state.historico.map(h=>`
+    <tr class="hover:bg-slate-50 transition-colors">
+      <td class="px-6 py-3 text-xs text-slate-500 font-mono">${h.dataHora}</td>
+      <td class="px-6 py-3 text-sm font-semibold">${h.detalhe}</td>
+      <td class="px-6 py-3 text-sm text-slate-600">${h.funcNome}</td>
+      <td class="px-6 py-3 text-sm text-slate-500">${h.detalhe}</td>
+      <td class="px-6 py-3"><span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${tipoCores[h.tipo]||'bg-slate-100 text-slate-600'}">${h.tipo}</span></td>
+    </tr>`).join('');
+}
+function limparHistorico() {
+  if (!confirm('Limpar todo o histórico?')) return;
+  state.historico = [];
+  saveState(); renderHistorico();
+  showToast('Limpo!', 'Histórico apagado.', 'bg-red-600', 'delete');
+}
+// ============================================================
+// CONFIGURAÇÕES / ALTERAR SENHA
+// ============================================================
+function renderConfiguracoes() {
+  ['cfg-senha-atual','cfg-senha-nova','cfg-senha-confirma'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  document.getElementById('cfg-senha-erro').classList.add('hidden');
+}
+function alterarSenhaAdmin() {
+  const atual = document.getElementById('cfg-senha-atual').value;
+  const nova = document.getElementById('cfg-senha-nova').value;
+  const confirma = document.getElementById('cfg-senha-confirma').value;
+  const erroEl = document.getElementById('cfg-senha-erro');
+  if (btoa(atual) !== state.config.senhaAdmin) {
+    erroEl.textContent = 'Senha atual incorreta.';
+    erroEl.classList.remove('hidden');
+    return;
+  }
+  if (nova.length < 4) {
+    erroEl.textContent = 'A nova senha deve ter pelo menos 4 caracteres.';
+    erroEl.classList.remove('hidden');
+    return;
+  }
+  if (nova !== confirma) {
+    erroEl.textContent = 'As senhas não coincidem.';
+    erroEl.classList.remove('hidden');
+    return;
+  }
+  state.config.senhaAdmin = btoa(nova);
+  saveState();
+  erroEl.classList.add('hidden');
+  showToast('Sucesso!', 'Senha alterada com sucesso.', 'bg-green-500', 'check_circle');
+  renderConfiguracoes();
+}
+// ============================================================
+// TURNOS
+// ============================================================
+function renderTurnos() {
+  const lista = document.getElementById('turnos-lista');
+  document.getElementById('turnos-count').textContent = `${state.turnos.length} Turno(s)`;
+  if (!state.turnos.length) { lista.innerHTML = '<div class="bg-white rounded-xl border border-slate-200 p-8 text-center text-slate-400">Nenhum turno cadastrado</div>'; return; }
+  lista.innerHTML = state.turnos.map(t=>`
+    <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:border-primary/50 transition-all group">
+      <div class="flex justify-between items-start mb-4">
+        <div class="flex items-center gap-3">
+          <div class="p-2 bg-blue-50 rounded-lg text-primary"><span class="material-symbols-outlined">schedule</span></div>
+          <div><h3 class="font-bold text-slate-900">${t.nome}</h3><p class="text-xs text-slate-400">Tolerância: ${t.tolerancia||5}min</p></div>
+        </div>
+        <div class="flex gap-1">
+          <button onclick="editarTurno(${t.id})" class="p-2 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-primary transition-colors"><span class="material-symbols-outlined">edit</span></button>
+          <button onclick="excluirTurno(${t.id})" class="p-2 hover:bg-red-50 rounded-lg text-slate-400 hover:text-red-500 transition-colors"><span class="material-symbols-outlined">delete</span></button>
+        </div>
+      </div>
+      <div class="grid grid-cols-4 gap-2 py-3 border-y border-slate-100">
+        <div class="text-center"><p class="text-[10px] text-slate-400 uppercase font-bold">Entrada</p><p class="text-sm font-bold text-slate-700">${t.entrada}</p></div>
+        <div class="text-center"><p class="text-[10px] text-slate-400 uppercase font-bold">S. Intervalo</p><p class="text-sm font-bold text-slate-700">${t.saida_int||'—'}</p></div>
+        <div class="text-center"><p class="text-[10px] text-slate-400 uppercase font-bold">V. Intervalo</p><p class="text-sm font-bold text-slate-700">${t.volta_int||'—'}</p></div>
+        <div class="text-center"><p class="text-[10px] text-slate-400 uppercase font-bold">Saída</p><p class="text-sm font-bold text-slate-700">${t.saida}</p></div>
+      </div>
+      <div class="mt-3 text-xs text-slate-500 font-medium">Carga: ${calcCargaTurno(t)}/dia</div>
+    </div>`).join('');
+}
+function calcCargaTurno(t) {
+  let mins = diffMin(t.entrada, t.saida);
+  if (t.saida_int && t.volta_int) mins -= diffMin(t.saida_int, t.volta_int);
+  return minToHHMM(Math.max(0, mins));
+}
+function resetFormTurno() {
+  document.getElementById('turno-edit-id').value='';
+  document.getElementById('turno-nome').value='';
+  document.getElementById('turno-entrada').value='';
+  document.getElementById('turno-saida-int').value='';
+  document.getElementById('turno-volta-int').value='';
+  document.getElementById('turno-saida').value='';
+  document.getElementById('turno-tolerancia').value=5;
+  document.getElementById('form-turno-title').textContent='Novo Turno';
+}
+function salvarTurno(e) {
+  e.preventDefault();
+  const nome=document.getElementById('turno-nome').value.trim();
+  const entrada=document.getElementById('turno-entrada').value;
+  const saida_int=document.getElementById('turno-saida-int').value;
+  const volta_int=document.getElementById('turno-volta-int').value;
+  const saida=document.getElementById('turno-saida').value;
+  const tolerancia=parseInt(document.getElementById('turno-tolerancia').value)||5;
+  const editId=parseInt(document.getElementById('turno-edit-id').value);
+  if (editId) { const t=state.turnos.find(t=>t.id===editId); if(t){t.nome=nome;t.entrada=entrada;t.saida_int=saida_int;t.volta_int=volta_int;t.saida=saida;t.tolerancia=tolerancia;} }
+  else state.turnos.push({id:state.nextTurnoId++,nome,entrada,saida_int,volta_int,saida,tolerancia});
+  addHistorico('cadastro', 0, `Turno "${nome}" ${editId?'editado':'criado'}`);
+  saveState(); resetFormTurno(); renderTurnos();
+  showToast('Salvo!', `Turno "${nome}" salvo.`);
+}
+function editarTurno(id) {
+  const t=state.turnos.find(t=>t.id===id); if(!t) return;
+  document.getElementById('turno-edit-id').value=t.id;
+  document.getElementById('turno-nome').value=t.nome;
+  document.getElementById('turno-entrada').value=t.entrada;
+  document.getElementById('turno-saida-int').value=t.saida_int||'';
+  document.getElementById('turno-volta-int').value=t.volta_int||'';
+  document.getElementById('turno-saida').value=t.saida;
+  document.getElementById('turno-tolerancia').value=t.tolerancia||5;
+  document.getElementById('form-turno-title').textContent=`Editar: ${t.nome}`;
+}
+function excluirTurno(id) {
+  if(!confirm('Excluir este turno?')) return;
+  const t=state.turnos.find(t=>t.id===id);
+  addHistorico('cadastro', 0, `Turno "${t?.nome}" excluído`);
+  state.turnos=state.turnos.filter(t=>t.id!==id);
+  saveState(); renderTurnos();
+  showToast('Removido!','Turno excluído.','bg-red-600','delete');
+}
+// ============================================================
+// EXPORTAÇÃO CSV
+// ============================================================
+function exportarCSV() {
+  const mes=parseInt(document.getElementById('filtro-mes').value);
+  const ano=new Date().getFullYear();
+  const funcFiltro=document.getElementById('filtro-func').value||'todos';
+  const rows=getRowsRelatorio(mes,ano,funcFiltro);
+  const header=['Funcionário','Data','Entrada','Saída Intervalo','Volta Intervalo','Saída','Horas Trabalhadas','Horas Extras','Status'];
+  const lines=[header.join(';')];
+  rows.forEach(d=>{
+    const func=state.funcionarios.find(f=>f.id===d.funcId);
+    const entrada=d.regs.find(r=>r.tipo==='entrada');
+    const si=d.regs.find(r=>r.tipo==='saida_intervalo');
+    const vi=d.regs.find(r=>r.tipo==='volta_intervalo');
+    const saida=d.regs.find(r=>r.tipo==='saida');
+    const mins=saida?calcHorasDia(d.funcId,d.data):0;
+    const extra=saida?calcHorasExtra(d.funcId,d.data):0;
+    const status=saida&&entrada?'Completo':entrada?'Incompleto':'Ausente';
+    lines.push([func?.nome||'',formatDate(d.data),entrada?.hora||'',si?.hora||'',vi?.hora||'',saida?.hora||'',minToHHMM(mins),extra?minToHHMMSigned(extra):'',status].join(';'));
+  });
+  const blob=new Blob(['\uFEFF'+lines.join('\n')],{type:'text/csv;charset=utf-8;'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download=`ponto_${MESES[mes]}_${ano}.csv`; a.click();
+  showToast('Exportado!','CSV baixado com sucesso.');
+}
+// ============================================================
+// EXPORTAÇÃO PDF
+// ============================================================
+function exportarPDF() {
+  const mes=parseInt(document.getElementById('filtro-mes').value);
+  const ano=new Date().getFullYear();
+  const funcFiltro=document.getElementById('filtro-func').value||'todos';
+  const rows=getRowsRelatorio(mes,ano,funcFiltro);
+  try {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation:'landscape' });
+    const azul = [11,80,218];
+    doc.setFillColor(...azul);
+    doc.rect(0,0,297,22,'F');
+    doc.setTextColor(255,255,255);
+    doc.setFontSize(14); doc.setFont('helvetica','bold');
+    doc.text('FS Celulares — Relatório de Ponto', 14, 14);
+    doc.setFontSize(9); doc.setFont('helvetica','normal');
+    doc.text(`${MESES[mes]} ${ano} · Gerado em ${nowFull()}`, 200, 14);
+    doc.setTextColor(0,0,0); doc.setFontSize(10); doc.setFont('helvetica','bold');
+    doc.text('Resumo do Período', 14, 32);
+    let totalH=0, diasT=0, totalE=0;
+    rows.forEach(d=>{ const s=d.regs.find(r=>r.tipo==='saida'); if(s){totalH+=calcHorasDia(d.funcId,d.data);diasT++;totalE+=calcHorasExtra(d.funcId,d.data);} });
+    doc.setFont('helvetica','normal'); doc.setFontSize(9);
+    doc.text(`Total Horas: ${minToHHMM(totalH)}   Dias: ${diasT}   H. Extras: ${minToHHMMSigned(totalE)}`, 14, 40);
+    const headers=['Funcionário','Data','Entrada','S.Int.','V.Int.','Saída','Horas','H.Extra','Status'];
+    const colW=[40,22,18,18,18,18,18,18,20];
+    let y=52;
+    doc.setFillColor(...azul);
+    doc.rect(14,y-5,268,8,'F');
+    doc.setTextColor(255,255,255); doc.setFontSize(7); doc.setFont('helvetica','bold');
+    let x=14; headers.forEach((h,i)=>{ doc.text(h,x+1,y); x+=colW[i]; });
+    y+=6;
+    doc.setTextColor(0,0,0); doc.setFont('helvetica','normal');
+    rows.forEach((d,idx)=>{
+      if(y>185){ doc.addPage(); y=20; }
+      const func=state.funcionarios.find(f=>f.id===d.funcId);
+      const entrada=d.regs.find(r=>r.tipo==='entrada');
+      const si=d.regs.find(r=>r.tipo==='saida_intervalo');
+      const vi=d.regs.find(r=>r.tipo==='volta_intervalo');
+      const saida=d.regs.find(r=>r.tipo==='saida');
+      const mins=saida?calcHorasDia(d.funcId,d.data):0;
+      const extra=saida?calcHorasExtra(d.funcId,d.data):0;
+      const status=saida&&entrada?'Completo':entrada?'Incompleto':'Ausente';
+      if(idx%2===0){ doc.setFillColor(245,246,248); doc.rect(14,y-4,268,7,'F'); }
+      x=14;
+      const vals=[func?.nome||'',formatDate(d.data),entrada?.hora||'—',si?.hora||'—',vi?.hora||'—',saida?.hora||'—',mins?minToHHMM(mins):'—',extra?minToHHMMSigned(extra):'—',status];
+      vals.forEach((v,i)=>{ doc.setFontSize(7); doc.text(String(v),x+1,y); x+=colW[i]; });
+      y+=7;
+    });
+    doc.save(`ponto_${MESES[mes]}_${ano}.pdf`);
+    showToast('PDF gerado!','Relatório baixado com sucesso.');
+  } catch(e) {
+    showToast('Erro!','Não foi possível gerar o PDF.','bg-red-600','error');
+    console.error(e);
+  }
+}
+// ============================================================
+// TOAST
+// ============================================================
+let toastTimer;
+function showToast(title, msg, bg='bg-green-600', icon='task_alt') {
+  const t=document.getElementById('toast');
+  document.getElementById('toast-title').textContent=title;
+  document.getElementById('toast-msg').textContent=msg;
+  document.getElementById('toast-icon').textContent=icon==='warning'?'warning':icon==='delete'?'delete':icon==='error'?'error':'task_alt';
+  t.className=`toast fixed bottom-8 right-8 ${bg} text-white px-6 py-4 rounded-xl shadow-2xl flex items-center gap-4 z-50`;
+  requestAnimationFrame(()=>t.classList.add('show'));
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>t.classList.remove('show'),3500);
+}
+// ============================================================
+// SESSÕES
+// ============================================================
+function mostrarTela(qual) {
+  document.getElementById('tela-publica').classList.remove('ativa');
+  document.getElementById('tela-funcionario').classList.remove('ativa');
+  document.getElementById('painel-admin').classList.remove('ativa');
+  document.getElementById(qual).classList.add('ativa');
+}
+
+function iniciarSessaoFuncionario(funcId) {
+  const func = state.funcionarios.find(f => f.id === funcId);
+  if (!func) return;
+  state.sessao = { tipo: 'funcionario', funcId };
+  saveState();
+  // Preenche header
+  document.getElementById('func-avatar').textContent = iniciais(func.nome);
+  document.getElementById('func-avatar').className = `size-11 rounded-full ${func.cor} flex items-center justify-center font-extrabold text-sm`;
+  document.getElementById('func-nome-header').textContent = func.nome;
+  document.getElementById('func-cargo-header').textContent = `${func.cargo} · Turno: ${func.turno}`;
+  // Preenche card de turno
+  const t = getFuncTurno(func);
+  if (t) {
+    document.getElementById('func-turno-info').innerHTML = `
+      <div><p class="text-[10px] text-slate-400 uppercase font-bold">Entrada</p><p class="text-sm font-bold text-slate-700">${t.entrada}</p></div>
+      <div><p class="text-[10px] text-slate-400 uppercase font-bold">S. Intervalo</p><p class="text-sm font-bold text-slate-700">${t.saida_int||'—'}</p></div>
+      <div><p class="text-[10px] text-slate-400 uppercase font-bold">V. Intervalo</p><p class="text-sm font-bold text-slate-700">${t.volta_int||'—'}</p></div>
+      <div><p class="text-[10px] text-slate-400 uppercase font-bold">Saída</p><p class="text-sm font-bold text-slate-700">${t.saida}</p></div>`;
+    document.getElementById('func-turno-card').classList.remove('hidden');
+  } else {
+    document.getElementById('func-turno-card').classList.add('hidden');
+  }
+  renderHistoricoHojeFunc(funcId);
+  mostrarTela('tela-funcionario');
+}
+
+function iniciarSessaoAdmin() {
+  state.sessao = { tipo: 'admin', funcId: null };
+  saveState();
+  mostrarTela('painel-admin');
+  document.getElementById('filtro-mes').value = new Date().getMonth();
+  renderDashboard();
+}
+
+function encerrarSessao() {
+  state.sessao = { tipo: null, funcId: null };
+  saveState();
+  renderTelaPublica();
+  mostrarTela('tela-publica');
+}
+
+// ============================================================
+// TELA PÚBLICA
+// ============================================================
+function renderTelaPublica() {
+  const container = document.getElementById('pub-func-cards');
+  if (!state.funcionarios.length) {
+    container.innerHTML = '<p class="col-span-3 text-center text-slate-400 text-sm py-8">Nenhum funcionário cadastrado</p>';
+    return;
+  }
+  container.innerHTML = state.funcionarios.map(f => {
+    const s = getStatusHoje(f.id);
+    return `<button onclick="iniciarSessaoFuncionario(${f.id})"
+      class="func-card bg-white border border-slate-200 rounded-2xl p-7 flex flex-col items-center gap-3 shadow-sm cursor-pointer w-full">
+      <div class="size-16 rounded-full ${f.cor} flex items-center justify-center font-extrabold text-2xl">${iniciais(f.nome)}</div>
+      <div class="text-center">
+        <p class="font-extrabold text-slate-900 text-base leading-tight">${f.nome}</p>
+        <p class="text-slate-500 text-xs mt-0.5">${f.cargo}</p>
+      </div>
+      <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${s.cor}">${s.status}</span>
+    </button>`;
+  }).join('');
+}
+
+// ============================================================
+// MODAL LOGIN ADMIN
+// ============================================================
+function abrirLoginAdmin() {
+  document.getElementById('admin-senha-input').value = '';
+  document.getElementById('admin-senha-erro').classList.add('hidden');
+  document.getElementById('modal-login-admin').classList.add('open');
+  setTimeout(() => document.getElementById('admin-senha-input').focus(), 100);
+}
+
+function fecharLoginAdmin() {
+  document.getElementById('modal-login-admin').classList.remove('open');
+}
+
+function tentarLoginAdmin() {
+  const senha = document.getElementById('admin-senha-input').value;
+  const senhaHash = btoa(senha);
+  if (senhaHash === state.config.senhaAdmin) {
+    fecharLoginAdmin();
+    iniciarSessaoAdmin();
+  } else {
+    const erroEl = document.getElementById('admin-senha-erro');
+    erroEl.classList.remove('hidden');
+    const inputEl = document.getElementById('admin-senha-input');
+    inputEl.classList.add('shake');
+    setTimeout(() => inputEl.classList.remove('shake'), 450);
+    inputEl.value = '';
+    inputEl.focus();
+  }
+}
+
+// ============================================================
+// REGISTRO DE PONTO — TELA DO FUNCIONÁRIO
+// ============================================================
+function registrarPontoFunc(tipo) {
+  const funcId = state.sessao.funcId;
+  if (!funcId) return;
+  const func = state.funcionarios.find(f => f.id === funcId);
+  const hora = nowStr();
+  const data = todayStr();
+  const regsHoje = state.registros.filter(r => r.funcId === funcId && r.data === data);
+  const ordem = ['entrada','saida_intervalo','volta_intervalo','saida'];
+  const jaTemTipo = regsHoje.find(r => r.tipo === tipo);
+  if (jaTemTipo) {
+    showToast('Atenção!', `${TIPOS[tipo].label} já registrada hoje.`, 'bg-yellow-500', 'warning');
+    return;
+  }
+  const idx = ordem.indexOf(tipo);
+  if (idx > 0 && !regsHoje.find(r => r.tipo === ordem[idx-1])) {
+    showToast('Atenção!', `Registre primeiro: ${TIPOS[ordem[idx-1]].label}.`, 'bg-yellow-500', 'warning');
+    return;
+  }
+  const t = getFuncTurno(func);
+  let alertaAtraso = '';
+  if (t && tipo === 'entrada') {
+    const atraso = diffMin(t.entrada, hora) - (t.tolerancia || 5);
+    if (atraso > 0) alertaAtraso = ` (${atraso}min de atraso)`;
+  }
+  state.registros.push({ funcId, tipo, hora, data });
+  addHistorico('ponto', funcId, `${TIPOS[tipo].label} às ${hora}${alertaAtraso}`);
+  saveState();
+  renderHistoricoHojeFunc(funcId);
+  showToast('Ponto Registrado!', `${TIPOS[tipo].label} — ${hora} — ${func.nome}${alertaAtraso}`);
+}
+
+function renderHistoricoHojeFunc(funcId) {
+  const container = document.getElementById('func-historico-hoje');
+  const totalEl = document.getElementById('func-total-hoje');
+  const regs = state.registros.filter(r => r.funcId === funcId && r.data === todayStr());
+  if (!regs.length) {
+    container.innerHTML = '<p class="px-6 py-8 text-center text-slate-400 text-sm">Nenhum registro hoje</p>';
+    totalEl.textContent = 'Total: 00h 00m';
+    return;
+  }
+  container.innerHTML = ['entrada','saida_intervalo','volta_intervalo','saida'].map(t => {
+    const reg = regs.find(r => r.tipo === t);
+    const info = TIPOS[t];
+    if (reg) return `<div class="px-6 py-4 flex items-center justify-between hover:bg-slate-50 transition-colors">
+      <div class="flex items-center gap-4"><div class="w-10 h-10 rounded-full ${info.color} flex items-center justify-center"><span class="material-symbols-outlined text-xl">${info.icon}</span></div>
+      <div><p class="font-bold text-slate-700">${info.label}</p><p class="text-xs text-slate-400">Registrado</p></div></div>
+      <p class="text-lg font-bold text-slate-900">${reg.hora}</p></div>`;
+    return `<div class="px-6 py-4 flex items-center justify-between opacity-40">
+      <div class="flex items-center gap-4"><div class="w-10 h-10 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center"><span class="material-symbols-outlined text-xl">schedule</span></div>
+      <div><p class="font-bold text-slate-600">${info.label}</p><p class="text-xs text-slate-400">Pendente</p></div></div>
+      <p class="text-lg font-bold text-slate-300">--:--</p></div>`;
+  }).join('');
+  totalEl.textContent = `Total: ${minToHHMM(calcHorasDia(funcId, todayStr()))}`;
+}
+
+// ============================================================
+// INIT
+// ============================================================
+document.getElementById('filtro-mes').value = new Date().getMonth();
+renderTelaPublica();
+mostrarTela('tela-publica');
+// Se havia sessão admin salva, retoma (funcionários sempre voltam à tela pública por segurança)
+if (state.sessao && state.sessao.tipo === 'admin') {
+  iniciarSessaoAdmin();
+}
+renderDashboard();
+</script>
+</body>
+</html>

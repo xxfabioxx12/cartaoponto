@@ -1,0 +1,19 @@
+{
+  "name": "fs-celulares-sistema-ponto",
+  "version": "1.0.0",
+  "description": "Sistema de Cartão Ponto para FS Celulares",
+  "type": "module",
+  "scripts": {
+    "dev": "python -m http.server 3000",
+    "build": "echo 'No build step needed for this static site'",
+    "start": "python -m http.server 8080"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.38.0",
+    "jspdf": "^2.5.1"
+  },
+  "devDependencies": {},
+  "keywords": ["ponto", "cartão", "celulares", "fs"],
+  "author": "FS Celulares",
+  "license": "MIT"
+}
