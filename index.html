@@ -1035,10 +1035,11 @@ function renderHistorico() {
     tbody.innerHTML = '<tr><td colspan="5" class="px-6 py-12 text-center text-slate-400">Nenhuma ação registrada ainda</td></tr>'; return;
   }
   const tipoCores = { ponto:'bg-blue-100 text-blue-700', cadastro:'bg-purple-100 text-purple-700' };
+  const tipoLabels = { ponto:'Registro de Ponto', cadastro:'Cadastro' };
   tbody.innerHTML = state.historico.map(h=>`
     <tr class="hover:bg-slate-50 transition-colors">
       <td class="px-6 py-3 text-xs text-slate-500 font-mono">${h.dataHora}</td>
-      <td class="px-6 py-3 text-sm font-semibold">${h.detalhe}</td>
+      <td class="px-6 py-3 text-sm font-semibold">${tipoLabels[h.tipo]||h.tipo}</td>
       <td class="px-6 py-3 text-sm text-slate-600">${h.funcNome}</td>
       <td class="px-6 py-3 text-sm text-slate-500">${h.detalhe}</td>
       <td class="px-6 py-3"><span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${tipoCores[h.tipo]||'bg-slate-100 text-slate-600'}">${h.tipo}</span></td>
