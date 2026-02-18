@@ -523,6 +523,11 @@ async function initSupabase() {
       key = saved.key || '';
     } catch(e) {}
   }
+  // 3. Fallback final: credenciais do projeto
+  if (!url || !key) {
+    url = 'https://ebhzsddqmjnxzcecgyrv.supabase.co';
+    key = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImViaHpzZGRxbWpueHpjZWNneXJ2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEyNTk2MzMsImV4cCI6MjA4NjgzNTYzM30.FiQzaDQ7zifJsHJdVwAhP96y_gA_pPPfZtfGp_ZeWJk';
+  }
   if (url && key && typeof window.supabase !== 'undefined') {
     supabase = window.supabase.createClient(url, key);
   }
