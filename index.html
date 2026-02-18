@@ -436,6 +436,31 @@
             </button>
           </div>
         </div>
+        <!-- Configurar Supabase -->
+        <div class="w-full bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+          <div class="px-6 py-4 border-b border-slate-200">
+            <h3 class="font-bold text-slate-800 flex items-center gap-2">
+              <span class="material-symbols-outlined text-primary">cloud_sync</span>Sincronização com a Nuvem (Supabase)
+            </h3>
+          </div>
+          <div class="p-6 space-y-4">
+            <div id="cfg-supa-status" class="text-sm font-semibold px-3 py-2 rounded-lg bg-red-50 text-red-700">Não conectado ao banco de dados</div>
+            <div>
+              <label class="block text-sm font-semibold mb-1.5 text-slate-700">URL do Supabase</label>
+              <input id="cfg-supa-url" type="text" placeholder="https://xxxx.supabase.co"
+                class="w-full rounded-lg border-slate-200 text-sm p-3 border focus:ring-2 focus:ring-primary focus:border-primary outline-none transition font-mono"/>
+            </div>
+            <div>
+              <label class="block text-sm font-semibold mb-1.5 text-slate-700">Chave Anon (anon key)</label>
+              <input id="cfg-supa-key" type="password" placeholder="eyJhbGci..."
+                class="w-full rounded-lg border-slate-200 text-sm p-3 border focus:ring-2 focus:ring-primary focus:border-primary outline-none transition font-mono"/>
+            </div>
+            <p class="text-xs text-slate-400">Obtenha as credenciais em app.supabase.com → Projeto → Settings → API</p>
+            <button onclick="salvarConfigSupabase()" class="w-full py-3 text-sm font-bold text-white bg-primary hover:bg-primary/90 rounded-lg shadow-md transition-all">
+              Salvar e Conectar
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   </main>
@@ -477,17 +502,60 @@
 const STORAGE_KEY = 'fs_ponto_v2';
 
 let supabase = null;
+const SUPA_CFG_KEY = 'fs_supa_cfg';
 
 async function initSupabase() {
+  let url = '', key = '';
+  // 1. Tentar /api/config (Vercel env vars)
   try {
     const resp = await fetch('/api/config', { cache: 'no-store' });
-    if (!resp.ok) return;
-    const cfg = await resp.json();
-    if (cfg.supabaseUrl && cfg.supabaseKey && typeof window.supabase !== 'undefined') {
-      supabase = window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseKey);
+    if (resp.ok) {
+      const cfg = await resp.json();
+      url = cfg.supabaseUrl || '';
+      key = cfg.supabaseKey || '';
     }
-  } catch(e) {
-    // sem conexão ou config indisponível — usa apenas localStorage
+  } catch(e) {}
+  // 2. Fallback: credenciais salvas manualmente no localStorage
+  if (!url || !key) {
+    try {
+      const saved = JSON.parse(localStorage.getItem(SUPA_CFG_KEY) || '{}');
+      url = saved.url || '';
+      key = saved.key || '';
+    } catch(e) {}
+  }
+  if (url && key && typeof window.supabase !== 'undefined') {
+    supabase = window.supabase.createClient(url, key);
+  }
+  atualizarStatusSupabase();
+}
+
+function atualizarStatusSupabase() {
+  const el = document.getElementById('cfg-supa-status');
+  if (!el) return;
+  if (supabase) {
+    el.className = 'text-sm font-semibold px-3 py-2 rounded-lg bg-green-50 text-green-700';
+    el.textContent = 'Conectado ao banco de dados (dados sincronizados entre dispositivos)';
+  } else {
+    el.className = 'text-sm font-semibold px-3 py-2 rounded-lg bg-red-50 text-red-700';
+    el.textContent = 'Não conectado — dados salvos apenas neste dispositivo';
+  }
+}
+
+async function salvarConfigSupabase() {
+  const url = document.getElementById('cfg-supa-url').value.trim();
+  const key = document.getElementById('cfg-supa-key').value.trim();
+  if (!url || !key) {
+    showToast('Atenção!', 'Preencha URL e chave do Supabase.', 'bg-yellow-500', 'warning');
+    return;
+  }
+  localStorage.setItem(SUPA_CFG_KEY, JSON.stringify({ url, key }));
+  if (typeof window.supabase !== 'undefined') {
+    supabase = window.supabase.createClient(url, key);
+    atualizarStatusSupabase();
+    await loadFromCloud();
+    renderTelaPublica();
+    renderDashboard();
+    showToast('Conectado!', 'Supabase configurado e dados sincronizados.', 'bg-green-500', 'check_circle');
   }
 }
 
@@ -985,6 +1053,15 @@ function renderConfiguracoes() {
     document.getElementById(id).value = '';
   });
   document.getElementById('cfg-senha-erro').classList.add('hidden');
+  // Preencher campos Supabase com valores já salvos
+  try {
+    const saved = JSON.parse(localStorage.getItem(SUPA_CFG_KEY) || '{}');
+    const urlEl = document.getElementById('cfg-supa-url');
+    const keyEl = document.getElementById('cfg-supa-key');
+    if (urlEl) urlEl.value = saved.url || '';
+    if (keyEl) keyEl.value = saved.key || '';
+  } catch(e) {}
+  atualizarStatusSupabase();
 }
 function alterarSenhaAdmin() {
   const atual = document.getElementById('cfg-senha-atual').value;
