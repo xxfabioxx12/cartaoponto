@@ -476,14 +476,34 @@
 // ============================================================
 const STORAGE_KEY = 'fs_ponto_v2';
 
-// Inicializar cliente Supabase
-const supabaseUrl = 'https://ebhzsddqmjnxzcecgyrv.supabase.co';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdWhhYmUiLCJyZWYiOiJzYWVhc3QtMSIsImF1ZCI6ImF1dGhlbnRpY2F0ZWQiLCJpYXQiOjE3MzEwNDM2ODB9.eyJpc3MiOiJzdWhhYmUiLCJyZWYiOiJzYWVhc3QtMSIsImF1ZCI6ImF1dGhlbnRpY2F0ZWQiLCJpYXQiOjE3MzEwNDM2ODB9';
 let supabase = null;
 
-// Inicializar Supabase quando possível
-if (typeof window.supabase !== 'undefined') {
-  supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+async function initSupabase() {
+  try {
+    const resp = await fetch('/api/config', { cache: 'no-store' });
+    if (!resp.ok) return;
+    const cfg = await resp.json();
+    if (cfg.supabaseUrl && cfg.supabaseKey && typeof window.supabase !== 'undefined') {
+      supabase = window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseKey);
+    }
+  } catch(e) {
+    // sem conexão ou config indisponível — usa apenas localStorage
+  }
+}
+
+async function loadFromCloud() {
+  if (!supabase) return;
+  try {
+    const { data, error } = await supabase.from('app_state').select('data').eq('id', 1).single();
+    if (!error && data && data.data) {
+      const cloudState = data.data;
+      const localSessao = state.sessao;
+      state = { ...cloudState, sessao: localSessao };
+      if (!state.config) state.config = { senhaAdmin: btoa('admin123') };
+      if (!state.sessao) state.sessao = { tipo: null, funcId: null };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    }
+  } catch(e) {}
 }
 
 function loadState() {
@@ -1340,6 +1360,15 @@ if (state.sessao && state.sessao.tipo === 'admin') {
   iniciarSessaoAdmin();
 }
 renderDashboard();
+// Conectar ao Supabase e sincronizar dados da nuvem em background
+(async () => {
+  await initSupabase();
+  await loadFromCloud();
+  if (supabase) {
+    renderTelaPublica();
+    renderDashboard();
+  }
+})();
 </script>
 </body>
 </html>
