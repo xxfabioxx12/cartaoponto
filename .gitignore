@@ -2,6 +2,7 @@
 .env
 .env.local
 .env.*.local
+CREDENCIAIS_PARA_COMPARTILHAR.txt
 
 # Node modules
 node_modules/
