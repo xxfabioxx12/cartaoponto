@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FS Celulares - Criar Tabelas Supabase</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.38.0"></script>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      background: #f5f6f8;
+    }
+    .container {
+      background: white;
+      border-radius: 8px;
+      padding: 30px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    h1 { color: #0b50da; margin-top: 0; }
+    button {
+      background: #0b50da;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 16px;
+      font-weight: 600;
+    }
+    button:hover { background: #0945b8; }
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    .status {
+      margin-top: 20px;
+      padding: 15px;
+      border-radius: 6px;
+      display: none;
+    }
+    .status.success {
+      background: #dcfce7;
+      color: #16a34a;
+      border: 1px solid #86efac;
+      display: block;
+    }
+    .status.error {
+      background: #fee2e2;
+      color: #dc2626;
+      border: 1px solid #fca5a5;
+      display: block;
+    }
+    .status.loading {
+      background: #dbeafe;
+      color: #1d4ed8;
+      border: 1px solid #93c5fd;
+      display: block;
+    }
+    .log {
+      background: #f1f5f9;
+      border: 1px solid #cbd5e1;
+      border-radius: 4px;
+      padding: 12px;
+      margin-top: 15px;
+      max-height: 300px;
+      overflow-y: auto;
+      font-family: monospace;
+      font-size: 12px;
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🚀 Criar Tabelas - FS Celulares</h1>
+    <p>Este script cria automaticamente as tabelas necessárias no Supabase.</p>
+
+    <button onclick="criarTabelas()" id="btnCriar">Criar Tabelas Agora</button>
+
+    <div id="status" class="status"></div>
+    <div id="log" class="log"></div>
+  </div>
+
+  <script>
+    const SUPABASE_URL = 'https://ebhzsddqmjnxzcecgyrv.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdWhhYmUiLCJyZWYiOiJzYWVhc3QtMSIsImF1ZCI6ImF1dGhlbnRpY2F0ZWQiLCJpYXQiOjE3MzEwNDM2ODB9.eyJpc3MiOiJzdWhhYmUiLCJyZWYiOiJzYWVhc3QtMSIsImF1ZCI6ImF1dGhlbnRpY2F0ZWQiLCJpYXQiOjE3MzEwNDM2ODB9';
+
+    let supabase = null;
+    let logContent = '';
+
+    function log(msg) {
+      console.log(msg);
+      logContent += msg + '\n';
+      document.getElementById('log').textContent = logContent;
+    }
+
+    function showStatus(msg, type) {
+      const el = document.getElementById('status');
+      el.textContent = msg;
+      el.className = 'status ' + type;
+    }
+
+    async function criarTabelas() {
+      try {
+        document.getElementById('btnCriar').disabled = true;
+        showStatus('⏳ Inicializando...', 'loading');
+        log('Conectando ao Supabase...');
+
+        supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        log('✓ Supabase conectado');
+
+        // Criar tabelas
+        log('\n📊 Criando tabelas...\n');
+
+        // 1. app_state
+        log('Criando tabela: app_state');
+        await supabase.rpc('sql', {
+          sql: `CREATE TABLE IF NOT EXISTS app_state (
+            id BIGINT PRIMARY KEY,
+            data JSONB NOT NULL,
+            updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+          )`
+        }).catch(e => log('  (Tabela pode já existir)'));
+
+        // 2. funcionarios
+        log('Criando tabela: funcionarios');
+        await supabase.rpc('sql', {
+          sql: `CREATE TABLE IF NOT EXISTS funcionarios (
+            id BIGINT PRIMARY KEY,
+            nome TEXT NOT NULL,
+            cargo TEXT,
+            turno TEXT,
+            carga BIGINT,
+            cor TEXT,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+          )`
+        }).catch(e => log('  (Tabela pode já existir)'));
+
+        // 3. registros
+        log('Criando tabela: registros');
+        await supabase.rpc('sql', {
+          sql: `CREATE TABLE IF NOT EXISTS registros (
+            id BIGINT PRIMARY KEY,
+            funcionario_id BIGINT,
+            data TEXT,
+            tipo TEXT,
+            hora TEXT,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+          )`
+        }).catch(e => log('  (Tabela pode já existir)'));
+
+        // 4. turnos
+        log('Criando tabela: turnos');
+        await supabase.rpc('sql', {
+          sql: `CREATE TABLE IF NOT EXISTS turnos (
+            id BIGINT PRIMARY KEY,
+            nome TEXT NOT NULL,
+            entrada TEXT,
+            saida_int TEXT,
+            volta_int TEXT,
+            saida TEXT,
+            tolerancia BIGINT,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+          )`
+        }).catch(e => log('  (Tabela pode já existir)'));
+
+        // 5. historico
+        log('Criando tabela: historico');
+        await supabase.rpc('sql', {
+          sql: `CREATE TABLE IF NOT EXISTS historico (
+            id BIGINT PRIMARY KEY,
+            tipo TEXT,
+            funcionario_id BIGINT,
+            detalhe TEXT,
+            timestamp TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+          )`
+        }).catch(e => log('  (Tabela pode já existir)'));
+
+        log('\n✅ Tabelas criadas com sucesso!');
+        showStatus('✅ Tabelas criadas! Sistema pronto para usar.', 'success');
+
+      } catch (error) {
+        log('\n❌ Erro: ' + error.message);
+        showStatus('❌ Erro ao criar tabelas: ' + error.message, 'error');
+      } finally {
+        document.getElementById('btnCriar').disabled = false;
+      }
+    }
+
+    // Tentar criar automaticamente
+    window.addEventListener('load', () => {
+      log('Página carregada. Clique em "Criar Tabelas Agora" para iniciar.');
+    });
+  </script>
+</body>
+</html>
