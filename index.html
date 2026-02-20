@@ -888,9 +888,9 @@ function renderDashboard() {
     const d = new Date(r.data+'T12:00:00');
     return d.getMonth()===mesAtual && d.getFullYear()===anoAtual;
   });
-  const dias = {};
-  regsDoMes.forEach(r=>{ const k=`${r.funcId}_${r.data}`; if(!dias[k]) dias[k]={funcId:r.funcId,data:r.data,regs:[]}; dias[k].regs.push(r); });
-  Object.values(dias).forEach(d=>{
+  const diasAtraso = {};
+  regsDoMes.forEach(r=>{ const k=`${r.funcId}_${r.data}`; if(!diasAtraso[k]) diasAtraso[k]={funcId:r.funcId,data:r.data,regs:[]}; diasAtraso[k].regs.push(r); });
+  Object.values(diasAtraso).forEach(d=>{
     const atraso = calcAtrasoEntrada(d.funcId, d.data);
     if (atraso>0) atrasosPorFunc[d.funcId]++;
   });
