@@ -1503,6 +1503,7 @@ function iniciarSessaoAdmin() {
   saveState();
   mostrarTela('painel-admin');
   document.getElementById('filtro-mes').value = new Date().getMonth();
+  document.getElementById('atrasos-filtro-mes').value = new Date().getMonth();
   renderDashboard();
 }
 
@@ -1629,6 +1630,7 @@ function renderHistoricoHojeFunc(funcId) {
 // INIT
 // ============================================================
 document.getElementById('filtro-mes').value = new Date().getMonth();
+document.getElementById('atrasos-filtro-mes').value = new Date().getMonth();
 renderTelaPublica();
 mostrarTela('tela-publica');
 // Se havia sessão admin salva, retoma (funcionários sempre voltam à tela pública por segurança)
