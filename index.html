@@ -216,6 +216,7 @@
       <a onclick="showPage('dashboard')" class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg cursor-pointer transition-colors text-slate-600 hover:bg-slate-100" data-page="dashboard"><span class="material-symbols-outlined">dashboard</span><span class="text-sm font-medium">Dashboard</span></a>
       <a onclick="showPage('funcionarios')" class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg cursor-pointer transition-colors text-slate-600 hover:bg-slate-100" data-page="funcionarios"><span class="material-symbols-outlined">group</span><span class="text-sm font-medium">Funcionários</span></a>
       <a onclick="showPage('relatorios')" class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg cursor-pointer transition-colors text-slate-600 hover:bg-slate-100" data-page="relatorios"><span class="material-symbols-outlined">description</span><span class="text-sm font-medium">Relatórios</span></a>
+      <a onclick="showPage('atrasos')" class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg cursor-pointer transition-colors text-slate-600 hover:bg-slate-100" data-page="atrasos"><span class="material-symbols-outlined">warning</span><span class="text-sm font-medium">Atrasos</span></a>
       <a onclick="showPage('banco_horas')" class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg cursor-pointer transition-colors text-slate-600 hover:bg-slate-100" data-page="banco_horas"><span class="material-symbols-outlined">account_balance</span><span class="text-sm font-medium">Banco de Horas</span></a>
       <a onclick="showPage('historico')" class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg cursor-pointer transition-colors text-slate-600 hover:bg-slate-100" data-page="historico"><span class="material-symbols-outlined">manage_history</span><span class="text-sm font-medium">Histórico</span></a>
       <a onclick="showPage('turnos')" class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg cursor-pointer transition-colors text-slate-600 hover:bg-slate-100" data-page="turnos"><span class="material-symbols-outlined">schedule</span><span class="text-sm font-medium">Turnos</span></a>
@@ -383,6 +384,40 @@
       <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
         <div class="px-6 py-4 border-b border-slate-200"><h3 class="font-bold text-slate-800">Extrato por Funcionário</h3></div>
         <div id="banco-table" class="divide-y divide-slate-100"></div>
+      </div>
+    </div>
+    <!-- ===== RELATÓRIO DE ATRASOS ===== -->
+    <div id="page-atrasos" class="page p-8">
+      <div class="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
+        <div><h1 class="text-3xl font-extrabold tracking-tight">Relatório de Atrasos</h1><p class="mt-1 text-slate-500">Análise de padrões de atraso por funcionário.</p></div>
+      </div>
+      <!-- Filtro de mês -->
+      <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm mb-6 flex flex-wrap gap-4 items-end">
+        <div class="flex flex-col min-w-[160px] flex-1">
+          <label class="text-slate-700 text-xs font-bold uppercase tracking-wider pb-2">Mês</label>
+          <select id="atrasos-filtro-mes" onchange="renderRelatorioAtrasos()" class="rounded-lg border border-slate-200 bg-slate-50 h-11 px-3 text-sm focus:ring-2 focus:ring-primary">
+            <option value="0">Janeiro</option><option value="1">Fevereiro</option><option value="2">Março</option><option value="3">Abril</option><option value="4">Maio</option><option value="5">Junho</option><option value="6">Julho</option><option value="7">Agosto</option><option value="8">Setembro</option><option value="9">Outubro</option><option value="10">Novembro</option><option value="11">Dezembro</option>
+          </select>
+        </div>
+      </div>
+      <!-- Cards de resumo por funcionário -->
+      <div id="atrasos-cards" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8"></div>
+      <!-- Gráfico de barras -->
+      <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden mb-8">
+        <div class="px-6 py-4 border-b border-slate-200"><h3 class="font-bold text-slate-800">Frequência de Atrasos</h3></div>
+        <div id="atrasos-grafico" class="p-6 space-y-4"></div>
+      </div>
+      <!-- Tabela de atrasos -->
+      <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <div class="px-6 py-4 border-b border-slate-200"><h3 class="font-bold text-slate-800">Dias com Atraso</h3></div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left">
+            <thead class="bg-slate-50 text-slate-500 text-xs font-bold uppercase tracking-wider">
+              <tr><th class="px-5 py-3">Funcionário</th><th class="px-5 py-3">Data</th><th class="px-5 py-3">Horário Esperado</th><th class="px-5 py-3">Horário Real</th><th class="px-5 py-3">Atraso</th></tr>
+            </thead>
+            <tbody id="atrasos-table" class="divide-y divide-slate-100"></tbody>
+          </table>
+        </div>
       </div>
     </div>
     <!-- ===== HISTÓRICO DE ALTERAÇÕES ===== -->
@@ -713,6 +748,18 @@ function calcHorasExtra(funcId, data) {
   if (!saida) return 0;
   return trabalhado - esperado;
 }
+function calcAtrasoEntrada(funcId, data) {
+  const func = state.funcionarios.find(f=>f.id===funcId);
+  if (!func) return 0;
+  const turno = state.turnos.find(t=>t.nome===func.turno);
+  if (!turno) return 0;
+  const regs = state.registros.filter(r=>r.funcId===funcId && r.data===data);
+  const entrada = regs.find(r=>r.tipo==='entrada');
+  if (!entrada) return 0;
+  const atrasoMin = diffMin(turno.entrada, entrada.hora);
+  const tolerancia = turno.tolerancia || 0;
+  return Math.max(0, atrasoMin - tolerancia);
+}
 function getStatusHoje(funcId) {
   const regs = state.registros.filter(r=>r.funcId===funcId && r.data===todayStr());
   if (!regs.length) return { status:'Ausente', cor:'bg-slate-100 text-slate-700', ultima:'—', entrada:'—' };
@@ -764,7 +811,7 @@ if (headerDateEl) headerDateEl.textContent =
 // ============================================================
 // NAVEGAÇÃO
 // ============================================================
-const PAGE_TITLES = { dashboard:'Dashboard', funcionarios:'Funcionários', relatorios:'Relatórios', banco_horas:'Banco de Horas', historico:'Histórico de Alterações', turnos:'Turnos', configuracoes:'Alterar Senha' };
+const PAGE_TITLES = { dashboard:'Dashboard', funcionarios:'Funcionários', relatorios:'Relatórios', atrasos:'Relatório de Atrasos', banco_horas:'Banco de Horas', historico:'Histórico de Alterações', turnos:'Turnos', configuracoes:'Alterar Senha' };
 function showPage(name) {
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.nav-link').forEach(l=>{ l.classList.remove('active-link'); l.classList.add('text-slate-600'); });
@@ -773,7 +820,7 @@ function showPage(name) {
   if (link) { link.classList.add('active-link'); link.classList.remove('text-slate-600'); }
   closeSidebar();
   document.getElementById('page-title').textContent = PAGE_TITLES[name] || name;
-  const renders = { dashboard:renderDashboard, funcionarios:renderFuncionarios, relatorios:renderRelatorio, banco_horas:renderBancoHoras, historico:renderHistorico, turnos:renderTurnos, configuracoes:renderConfiguracoes };
+  const renders = { dashboard:renderDashboard, funcionarios:renderFuncionarios, relatorios:renderRelatorio, atrasos:renderRelatorioAtrasos, banco_horas:renderBancoHoras, historico:renderHistorico, turnos:renderTurnos, configuracoes:renderConfiguracoes };
   if (renders[name]) renders[name]();
 }
 document.querySelector('[data-page="dashboard"]').classList.add('active-link');
@@ -830,6 +877,27 @@ function renderDashboard() {
     if (t && s.entrada !== '—') {
       const atraso = diffMin(t.entrada, s.entrada) - (t.tolerancia||5);
       if (atraso > 0) alertas.push({cor:'yellow', msg:`${f.nome} chegou ${atraso}min atrasado(a). Turno: ${t.entrada}, Entrada: ${s.entrada}.`});
+    }
+  });
+  // Alertas de atrasos repetidos no mês
+  const mesAtual = new Date().getMonth();
+  const anoAtual = new Date().getFullYear();
+  const atrasosPorFunc = {};
+  state.funcionarios.forEach(f=>{ atrasosPorFunc[f.id] = 0; });
+  const regsDoMes = state.registros.filter(r=>{
+    const d = new Date(r.data+'T12:00:00');
+    return d.getMonth()===mesAtual && d.getFullYear()===anoAtual;
+  });
+  const dias = {};
+  regsDoMes.forEach(r=>{ const k=`${r.funcId}_${r.data}`; if(!dias[k]) dias[k]={funcId:r.funcId,data:r.data,regs:[]}; dias[k].regs.push(r); });
+  Object.values(dias).forEach(d=>{
+    const atraso = calcAtrasoEntrada(d.funcId, d.data);
+    if (atraso>0) atrasosPorFunc[d.funcId]++;
+  });
+  Object.entries(atrasosPorFunc).forEach(([funcId,count])=>{
+    if (count>=3) {
+      const func = state.funcionarios.find(f=>f.id===parseInt(funcId));
+      if (func) alertas.push({cor:'red', msg:`⚠️ ${func.nome} tem ${count} atrasos este mês.`});
     }
   });
   const al = document.getElementById('alertas-lista');
@@ -1051,6 +1119,85 @@ function renderBancoHoras() {
       </div>
     </div>`;
   }).join('');
+}
+// ============================================================
+// RELATÓRIO DE ATRASOS
+// ============================================================
+function renderRelatorioAtrasos() {
+  const mes = parseInt(document.getElementById('atrasos-filtro-mes').value);
+  const ano = new Date().getFullYear();
+  const atrasosPorFunc = {};
+  const diasAtrasados = [];
+  state.funcionarios.forEach(f=>{
+    atrasosPorFunc[f.id] = { func:f, atrasos:0, diasPontuais:0, maiorAtraso:0, dias:[] };
+  });
+  const regsDoMes = state.registros.filter(r=>{
+    const d = new Date(r.data+'T12:00:00');
+    return d.getMonth()===mes && d.getFullYear()===ano;
+  });
+  const dias = {};
+  regsDoMes.forEach(r=>{ const k=`${r.funcId}_${r.data}`; if(!dias[k]) dias[k]={funcId:r.funcId,data:r.data,regs:[]}; dias[k].regs.push(r); });
+  Object.values(dias).forEach(d=>{
+    const entrada = d.regs.find(r=>r.tipo==='entrada');
+    if (entrada) {
+      const atraso = calcAtrasoEntrada(d.funcId, d.data);
+      if (atraso>0) {
+        atrasosPorFunc[d.funcId].atrasos++;
+        atrasosPorFunc[d.funcId].maiorAtraso = Math.max(atrasosPorFunc[d.funcId].maiorAtraso, atraso);
+        atrasosPorFunc[d.funcId].dias.push({data:d.data,entrada:entrada.hora,atraso});
+        diasAtrasados.push({funcId:d.funcId,data:d.data,entrada:entrada.hora,atraso});
+      } else {
+        atrasosPorFunc[d.funcId].diasPontuais++;
+      }
+    }
+  });
+  const funcComAtrasos = Object.values(atrasosPorFunc).filter(d=>d.atrasos>0).sort((a,b)=>b.atrasos-a.atrasos);
+  document.getElementById('atrasos-cards').innerHTML = funcComAtrasos.map(({func,atrasos,diasPontuais,maiorAtraso})=>{
+    const temAlerta = atrasos>=3;
+    const badgeClass = temAlerta?'bg-red-100 text-red-700':'bg-yellow-100 text-yellow-700';
+    const turno = state.turnos.find(t=>t.nome===func.turno);
+    return `<div class="bg-white p-6 rounded-xl border ${temAlerta?'border-red-200':'border-slate-200'} shadow-sm">
+      <div class="flex items-start justify-between mb-4">
+        <div class="flex items-center gap-3">
+          <div class="size-10 rounded-full ${func.cor} flex items-center justify-center font-bold text-white text-sm">${iniciais(func.nome)}</div>
+          <div><p class="font-bold text-slate-800">${func.nome}</p><p class="text-xs text-slate-500">${func.cargo}</p></div>
+        </div>
+        ${temAlerta?`<span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold bg-red-100 text-red-700"><span class="material-symbols-outlined" style="font-size:14px">warning</span>ALERTA</span>`:''}
+      </div>
+      <div class="grid grid-cols-3 gap-3">
+        <div><p class="text-xs text-slate-500 uppercase font-bold">Atrasos</p><p class="text-2xl font-bold text-red-600">${atrasos}</p></div>
+        <div><p class="text-xs text-slate-500 uppercase font-bold">Pontuais</p><p class="text-2xl font-bold text-green-600">${diasPontuais}</p></div>
+        <div><p class="text-xs text-slate-500 uppercase font-bold">Maior</p><p class="text-2xl font-bold text-orange-600">${minToHHMM(maiorAtraso)}</p></div>
+      </div>
+      ${turno?`<p class="text-xs text-slate-400 mt-4 pt-4 border-t border-slate-100">Esperado: ${turno.entrada}</p>`:''}
+    </div>`;
+  }).join('');
+  const maxAtrasos = funcComAtrasos.length>0?Math.max(...funcComAtrasos.map(d=>d.atrasos)):0;
+  document.getElementById('atrasos-grafico').innerHTML = funcComAtrasos.length>0?funcComAtrasos.map(({func,atrasos})=>{
+    const pct = (atrasos/maxAtrasos)*100;
+    return `<div>
+      <div class="flex items-center justify-between mb-1">
+        <span class="text-sm font-semibold text-slate-700">${func.nome}</span>
+        <span class="text-xs font-bold text-slate-500">${atrasos} dia${atrasos!==1?'s':''}</span>
+      </div>
+      <div class="h-8 bg-slate-100 rounded-lg overflow-hidden">
+        <div class="h-full ${atrasos>=3?'bg-red-500':atrasos>=1?'bg-orange-500':'bg-yellow-500'}" style="width:${pct||0}%"></div>
+      </div>
+    </div>`;
+  }).join(''):'<p class="text-center text-slate-400 py-8">Nenhum atraso registrado neste mês</p>';
+  diasAtrasados.sort((a,b)=>a.data.localeCompare(b.data));
+  document.getElementById('atrasos-table').innerHTML = diasAtrasados.length>0?diasAtrasados.map(({funcId,data,entrada,atraso})=>{
+    const func = state.funcionarios.find(f=>f.id===funcId);
+    const turno = state.turnos.find(t=>t.nome===func.turno);
+    const horarioEsperado = turno?turno.entrada:'—';
+    return `<tr class="hover:bg-slate-50 transition-colors">
+      <td class="px-5 py-3 text-sm font-semibold">${func?.nome||'—'}</td>
+      <td class="px-5 py-3 text-sm text-slate-600">${formatDate(data)}</td>
+      <td class="px-5 py-3 text-sm">${horarioEsperado}</td>
+      <td class="px-5 py-3 text-sm font-semibold">${entrada}</td>
+      <td class="px-5 py-3"><span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-700">${minToHHMM(atraso)}</span></td>
+    </tr>`;
+  }).join(''):'<tr><td colspan="5" class="px-6 py-12 text-center text-slate-400">Nenhum atraso registrado neste mês</td></tr>';
 }
 // ============================================================
 // HISTÓRICO DE ALTERAÇÕES
