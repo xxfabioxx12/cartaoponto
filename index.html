@@ -749,15 +749,15 @@ function calcHorasExtra(funcId, data) {
   return trabalhado - esperado;
 }
 function calcAtrasoEntrada(funcId, data) {
-  const func = state.funcionarios.find(f=>f.id===funcId);
+  const func = state.funcionarios.find(f=>String(f.id)===String(funcId));
   if (!func) return 0;
   const turno = state.turnos.find(t=>t.nome===func.turno);
-  if (!turno) return 0;
-  const regs = state.registros.filter(r=>r.funcId===funcId && r.data===data);
+  if (!turno || !turno.entrada) return 0;
+  const regs = state.registros.filter(r=>String(r.funcId)===String(funcId) && r.data===data);
   const entrada = regs.find(r=>r.tipo==='entrada');
-  if (!entrada) return 0;
+  if (!entrada || !entrada.hora) return 0;
   const atrasoMin = diffMin(turno.entrada, entrada.hora);
-  const tolerancia = turno.tolerancia || 0;
+  const tolerancia = parseInt(turno.tolerancia) || 0;
   return Math.max(0, atrasoMin - tolerancia);
 }
 function getStatusHoje(funcId) {
@@ -1139,15 +1139,16 @@ function renderRelatorioAtrasos() {
   regsDoMes.forEach(r=>{ const k=`${r.funcId}_${r.data}`; if(!dias[k]) dias[k]={funcId:r.funcId,data:r.data,regs:[]}; dias[k].regs.push(r); });
   Object.values(dias).forEach(d=>{
     const entrada = d.regs.find(r=>r.tipo==='entrada');
-    if (entrada) {
+    const funcKey = Object.keys(atrasosPorFunc).find(k=>String(k)===String(d.funcId));
+    if (entrada && funcKey) {
       const atraso = calcAtrasoEntrada(d.funcId, d.data);
       if (atraso>0) {
-        atrasosPorFunc[d.funcId].atrasos++;
-        atrasosPorFunc[d.funcId].maiorAtraso = Math.max(atrasosPorFunc[d.funcId].maiorAtraso, atraso);
-        atrasosPorFunc[d.funcId].dias.push({data:d.data,entrada:entrada.hora,atraso});
+        atrasosPorFunc[funcKey].atrasos++;
+        atrasosPorFunc[funcKey].maiorAtraso = Math.max(atrasosPorFunc[funcKey].maiorAtraso, atraso);
+        atrasosPorFunc[funcKey].dias.push({data:d.data,entrada:entrada.hora,atraso});
         diasAtrasados.push({funcId:d.funcId,data:d.data,entrada:entrada.hora,atraso});
       } else {
-        atrasosPorFunc[d.funcId].diasPontuais++;
+        atrasosPorFunc[funcKey].diasPontuais++;
       }
     }
   });
