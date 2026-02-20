@@ -42,6 +42,32 @@
   .func-card { transition: all 0.18s ease; }
   .func-card:hover { transform: translateY(-4px); box-shadow: 0 12px 32px rgba(11,80,218,0.13); }
   #pub-clock-h, #pub-clock-m { min-width:120px; }
+  /* ===== MOBILE SIDEBAR ===== */
+  .sidebar-overlay { display:none; }
+  .sidebar-overlay.open { display:block; position:fixed; inset:0; background:rgba(0,0,0,0.4); z-index:40; }
+  #sidebar-toggle { display:none; }
+  @media (max-width:768px) {
+    #sidebar-toggle { display:flex; }
+    aside { position:fixed; left:0; top:0; height:100vh; width:256px; transform:translateX(-100%); transition:transform 0.3s ease; z-index:50; }
+    aside.mobile-open { transform:translateX(0); }
+    main { margin-left:0 !important; }
+    .page { padding:1rem !important; }
+    .page.p-8 { padding:1rem !important; }
+    .grid.grid-cols-2 { grid-template-columns:repeat(1,minmax(0,1fr)); }
+    .grid.lg\\:grid-cols-4 { grid-template-columns:repeat(1,minmax(0,1fr)); }
+    .grid.lg\\:grid-cols-3 { grid-template-columns:repeat(1,minmax(0,1fr)); }
+    .grid.grid-cols-1.lg\\:grid-cols-3 { grid-template-columns:repeat(1,minmax(0,1fr)); }
+    .lg\\:col-span-2 { grid-column:auto; }
+    .overflow-hidden.rounded-xl { overflow-x:auto; }
+    table { font-size:0.75rem; }
+    table th, table td { padding:0.5rem 0.75rem; }
+    .px-8 { padding-left:1rem !important; padding-right:1rem !important; }
+    .h-16 { padding-left:1rem !important; padding-right:1rem !important; }
+    h1 { font-size:1.25rem !important; }
+    h2 { font-size:1rem !important; }
+    header.h-16 { gap:2rem; }
+    .flex.gap-4 > div:nth-child(2) { display:none; }
+  }
 </style>
 </head>
 <body class="bg-background-light text-slate-900 antialiased font-display">
@@ -177,6 +203,7 @@
 <!-- ============================================================ -->
 <!-- PAINEL ADMIN (layout original) -->
 <!-- ============================================================ -->
+<div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
 <div id="painel-admin" class="flex-row w-full">
 <div class="flex min-h-screen w-full">
   <!-- ===== SIDEBAR ===== -->
@@ -208,6 +235,9 @@
   <main class="flex-1 ml-64 min-h-screen">
     <header class="h-16 bg-white border-b border-slate-200 px-8 flex items-center justify-between sticky top-0 z-40">
       <div class="flex items-center gap-4">
+        <button id="sidebar-toggle" onclick="toggleSidebar()" class="flex items-center justify-center w-10 h-10 rounded-lg hover:bg-slate-100 text-slate-600 transition-colors">
+          <span class="material-symbols-outlined">menu</span>
+        </button>
         <h2 id="page-title" class="text-xl font-bold">Dashboard</h2>
         <div class="hidden md:flex items-center bg-slate-100 rounded-lg px-3 py-1.5">
           <span class="material-symbols-outlined text-sm mr-2 text-slate-500">calendar_today</span>
@@ -741,6 +771,7 @@ function showPage(name) {
   document.getElementById('page-'+name).classList.add('active');
   const link = document.querySelector(`[data-page="${name}"]`);
   if (link) { link.classList.add('active-link'); link.classList.remove('text-slate-600'); }
+  closeSidebar();
   document.getElementById('page-title').textContent = PAGE_TITLES[name] || name;
   const renders = { dashboard:renderDashboard, funcionarios:renderFuncionarios, relatorios:renderRelatorio, banco_horas:renderBancoHoras, historico:renderHistorico, turnos:renderTurnos, configuracoes:renderConfiguracoes };
   if (renders[name]) renders[name]();
@@ -1270,6 +1301,21 @@ function showToast(title, msg, bg='bg-green-600', icon='task_alt') {
   toastTimer=setTimeout(()=>t.classList.remove('show'),3500);
 }
 // ============================================================
+// MOBILE SIDEBAR
+// ============================================================
+function toggleSidebar() {
+  const sidebar = document.querySelector('aside');
+  const overlay = document.getElementById('sidebar-overlay');
+  sidebar.classList.toggle('mobile-open');
+  overlay.classList.toggle('open');
+}
+function closeSidebar() {
+  const sidebar = document.querySelector('aside');
+  const overlay = document.getElementById('sidebar-overlay');
+  sidebar.classList.remove('mobile-open');
+  overlay.classList.remove('open');
+}
+
 // SESSÕES
 // ============================================================
 function mostrarTela(qual) {
