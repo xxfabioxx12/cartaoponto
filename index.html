@@ -685,6 +685,24 @@
 </div>
 <script>
 // ============================================================
+// SEGURANÇA — SHA-256 com salt para senha admin
+// ============================================================
+const SENHA_SALT = 'fs_celulares_2026';
+
+async function hashSenha(senha) {
+  const enc = new TextEncoder();
+  const data = enc.encode(senha + SENHA_SALT);
+  const hashBuf = await crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(hashBuf))
+    .map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function isBase64Hash(h) {
+  // Base64 de senhas curtas tem ≤ 44 chars; SHA-256 hex tem 64 chars
+  return typeof h === 'string' && h.length < 60;
+}
+
+// ============================================================
 // ESTADO E PERSISTÊNCIA
 // ============================================================
 const STORAGE_KEY = 'fs_ponto_v2';
@@ -1367,18 +1385,25 @@ function renderConfiguracoes() {
   } catch(e) {}
   atualizarStatusSupabase();
 }
-function alterarSenhaAdmin() {
+async function alterarSenhaAdmin() {
   const atual = document.getElementById('cfg-senha-atual').value;
   const nova = document.getElementById('cfg-senha-nova').value;
   const confirma = document.getElementById('cfg-senha-confirma').value;
   const erroEl = document.getElementById('cfg-senha-erro');
-  if (btoa(atual) !== state.config.senhaAdmin) {
+  const stored = state.config.senhaAdmin;
+
+  // Verificar senha atual (suporta legado Base64 e SHA-256)
+  const match = isBase64Hash(stored)
+    ? btoa(atual) === stored
+    : (await hashSenha(atual)) === stored;
+
+  if (!match) {
     erroEl.textContent = 'Senha atual incorreta.';
     erroEl.classList.remove('hidden');
     return;
   }
-  if (nova.length < 4) {
-    erroEl.textContent = 'A nova senha deve ter pelo menos 4 caracteres.';
+  if (nova.length < 6) {
+    erroEl.textContent = 'A nova senha deve ter pelo menos 6 caracteres.';
     erroEl.classList.remove('hidden');
     return;
   }
@@ -1387,10 +1412,10 @@ function alterarSenhaAdmin() {
     erroEl.classList.remove('hidden');
     return;
   }
-  state.config.senhaAdmin = btoa(nova);
-  saveState();
+  state.config.senhaAdmin = await hashSenha(nova);
+  await saveState();
   erroEl.classList.add('hidden');
-  showToast('Sucesso!', 'Senha alterada com sucesso.', 'bg-green-500', 'check_circle');
+  showToast('Sucesso!', 'Senha alterada e protegida com SHA-256.', 'bg-green-500', 'check_circle');
   renderConfiguracoes();
 }
 // ============================================================
@@ -1671,10 +1696,24 @@ function fecharLoginAdmin() {
   document.getElementById('modal-login-admin').classList.remove('open');
 }
 
-function tentarLoginAdmin() {
+async function tentarLoginAdmin() {
   const senha = document.getElementById('admin-senha-input').value;
-  const senhaHash = btoa(senha);
-  if (senhaHash === state.config.senhaAdmin) {
+  const stored = state.config.senhaAdmin;
+  let match = false;
+
+  if (isBase64Hash(stored)) {
+    // Formato legado Base64 — comparar e migrar automaticamente
+    match = btoa(senha) === stored;
+    if (match) {
+      state.config.senhaAdmin = await hashSenha(senha);
+      await saveState();
+    }
+  } else {
+    // Formato moderno SHA-256
+    match = (await hashSenha(senha)) === stored;
+  }
+
+  if (match) {
     fecharLoginAdmin();
     iniciarSessaoAdmin();
   } else {
