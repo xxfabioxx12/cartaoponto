@@ -13,43 +13,140 @@
   tailwind.config = {
     darkMode:"class",
     theme:{extend:{
-      colors:{"primary":"#0b50da","background-light":"#f5f6f8"},
-      fontFamily:{"display":["Inter","sans-serif"]},
-      borderRadius:{"DEFAULT":"0.25rem","lg":"0.5rem","xl":"0.75rem","full":"9999px"},
+      colors:{
+        "primary":"#0057FF",
+        "background-light":"#F5F7FA",
+      },
+      fontFamily:{"display":["Inter","-apple-system","BlinkMacSystemFont","sans-serif"]},
+      borderRadius:{"DEFAULT":"0.375rem","lg":"0.625rem","xl":"0.875rem","2xl":"1rem","full":"9999px"},
+      boxShadow:{
+        "sm":"0 1px 3px rgba(0,0,0,0.07),0 1px 2px rgba(0,0,0,0.04)",
+        "DEFAULT":"0 2px 8px rgba(0,0,0,0.08),0 1px 3px rgba(0,0,0,0.05)",
+        "md":"0 4px 16px rgba(0,0,0,0.09),0 2px 4px rgba(0,0,0,0.05)",
+        "lg":"0 16px 40px rgba(0,0,0,0.12),0 4px 12px rgba(0,0,0,0.08)",
+      },
     }},
   }
 </script>
 <style>
-  body{font-family:'Inter',sans-serif;}
-  .material-symbols-outlined{font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;}
-  .active-link{background-color:rgba(11,80,218,0.1);color:#0b50da;border-right:4px solid #0b50da;}
-  .page{display:none;}.page.active{display:block;}
-  .toast{transform:translateY(100px);opacity:0;transition:all 0.4s ease;pointer-events:none;}
-  .toast.show{transform:translateY(0);opacity:1;}
-  .modal-overlay{display:none;}.modal-overlay.open{display:flex;}
-  .horas-extra{background:#dcfce7;color:#16a34a;}
-  .horas-falta{background:#fee2e2;color:#dc2626;}
-  .horas-ok{background:#dbeafe;color:#1d4ed8;}
-  .bar-chart-bar{transition:height 0.5s ease;}
+  /* ===== DESIGN SYSTEM ===== */
+  :root {
+    --c-primary: #0057FF;
+    --c-primary-dark: #0042CC;
+    --c-bg: #F5F7FA;
+    --c-surface: #FFFFFF;
+    --shadow-xs: 0 1px 2px rgba(0,0,0,0.05);
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.07), 0 1px 2px rgba(0,0,0,0.04);
+    --shadow-md: 0 4px 16px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.05);
+    --shadow-lg: 0 20px 48px rgba(0,0,0,0.12), 0 6px 16px rgba(0,0,0,0.08);
+    --shadow-primary: 0 8px 24px rgba(0,87,255,0.18), 0 2px 8px rgba(0,87,255,0.12);
+  }
+
+  /* ===== BASE ===== */
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    letter-spacing: -0.01em;
+  }
+  .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+
+  /* ===== NAVEGAÇÃO ===== */
+  .active-link {
+    background: rgba(0,87,255,0.08);
+    color: var(--c-primary);
+    border-right: 3px solid var(--c-primary);
+    font-weight: 600;
+  }
+
+  /* ===== PÁGINAS ===== */
+  .page { display:none; }
+  .page.active { display:block; }
+
+  /* ===== TOAST ===== */
+  .toast {
+    transform: translateY(120px);
+    opacity: 0;
+    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    pointer-events: none;
+  }
+  .toast.show { transform: translateY(0); opacity: 1; }
+
+  /* ===== MODAL ===== */
+  .modal-overlay { display:none; }
+  .modal-overlay.open { display:flex; }
+
+  /* ===== BADGES HORA ===== */
+  .horas-extra { background: #dcfce7; color: #16a34a; }
+  .horas-falta { background: #fee2e2; color: #dc2626; }
+  .horas-ok    { background: #dbeafe; color: #1d4ed8; }
+
+  /* ===== GRÁFICO ===== */
+  .bar-chart-bar { transition: height 0.6s cubic-bezier(0.34, 1.56, 0.64, 1); }
+
   /* ===== SESSÕES ===== */
   #tela-publica, #tela-funcionario, #painel-admin { display:none; }
   #tela-publica.ativa, #tela-funcionario.ativa, #painel-admin.ativa { display:flex; }
   #painel-admin.ativa { flex-direction:row; min-height:100vh; }
+
+  /* ===== ANIMAÇÕES ===== */
   @keyframes shake {
-    0%,100%{transform:translateX(0)} 20%,60%{transform:translateX(-6px)} 40%,80%{transform:translateX(6px)}
+    0%,100% { transform:translateX(0); }
+    20%,60%  { transform:translateX(-7px); }
+    40%,80%  { transform:translateX(7px); }
   }
   .shake { animation: shake 0.4s ease; }
-  .func-card { transition: all 0.18s ease; }
-  .func-card:hover { transform: translateY(-4px); box-shadow: 0 12px 32px rgba(11,80,218,0.13); }
-  #pub-clock-h, #pub-clock-m { min-width:120px; }
+
+  @keyframes fadeUp {
+    from { opacity:0; transform:translateY(12px); }
+    to   { opacity:1; transform:translateY(0); }
+  }
+  .fade-up { animation: fadeUp 0.35s cubic-bezier(0.16, 1, 0.3, 1); }
+
+  /* ===== TELA PÚBLICA — RELÓGIO ===== */
+  .clock-digit {
+    background: #FFFFFF;
+    border-radius: 20px;
+    box-shadow: var(--shadow-md);
+    min-width: 110px;
+    text-align: center;
+    font-feature-settings: 'tnum';
+  }
+
+  /* ===== TELA PÚBLICA — CARDS FUNCIONÁRIO ===== */
+  .func-card {
+    transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: var(--shadow-sm);
+    border-color: rgba(0,0,0,0.06);
+  }
+  .func-card:hover {
+    transform: translateY(-6px);
+    box-shadow: var(--shadow-primary);
+    border-color: rgba(0,87,255,0.2);
+  }
+  .func-card:active { transform: translateY(-2px); }
+
   /* ===== MOBILE SIDEBAR ===== */
   .sidebar-overlay { display:none; }
-  .sidebar-overlay.open { display:block; position:fixed; inset:0; background:rgba(0,0,0,0.4); z-index:40; }
+  .sidebar-overlay.open {
+    display: block;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.45);
+    z-index: 40;
+    backdrop-filter: blur(4px);
+  }
   #sidebar-toggle { display:none; }
+
   @media (max-width:768px) {
     #sidebar-toggle { display:flex; }
-    aside { position:fixed; left:0; top:0; height:100vh; width:256px; transform:translateX(-100%); transition:transform 0.3s ease; z-index:50; }
-    aside.mobile-open { transform:translateX(0); }
+    aside {
+      position: fixed; left:0; top:0;
+      height: 100vh; width: 256px;
+      transform: translateX(-100%);
+      transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      z-index: 50;
+    }
+    aside.mobile-open { transform: translateX(0); }
     main { margin-left:0 !important; }
     .page { padding:1rem !important; }
     .page.p-8 { padding:1rem !important; }
@@ -77,31 +174,39 @@
 <!-- ============================================================ -->
 <div id="tela-publica" class="flex-col min-h-screen w-full bg-background-light">
   <!-- Topo: Logo + Relógio -->
-  <div class="flex flex-col items-center pt-12 pb-6 gap-4">
-    <div class="flex items-center gap-3 mb-2">
-      <div class="bg-primary rounded-xl p-2.5"><span class="material-symbols-outlined text-white text-2xl">storefront</span></div>
-      <div><h1 class="text-slate-900 text-2xl font-extrabold leading-none">FS Celulares</h1><span class="text-slate-500 text-sm">Sistema de Ponto</span></div>
+  <div class="flex flex-col items-center pt-14 pb-8 gap-5">
+    <!-- Logo premium -->
+    <div class="flex items-center gap-3">
+      <div class="bg-primary rounded-2xl p-3" style="box-shadow:0 8px 24px rgba(0,87,255,0.22)">
+        <span class="material-symbols-outlined text-white text-2xl" style="font-variation-settings:'FILL' 1,'wght' 500,'GRAD' 0,'opsz' 24">storefront</span>
+      </div>
+      <div>
+        <h1 class="text-slate-900 text-2xl font-extrabold leading-none tracking-tight">FS Celulares</h1>
+        <span class="text-slate-400 text-sm font-medium">Sistema de Ponto</span>
+      </div>
     </div>
-    <!-- Relógio grande -->
-    <div class="flex items-center gap-4 text-7xl md:text-8xl font-black tracking-tighter mt-2">
-      <div id="pub-clock-h" class="bg-white px-7 py-5 rounded-2xl shadow border border-slate-200 text-center">00</div>
-      <span class="animate-pulse text-primary">:</span>
-      <div id="pub-clock-m" class="bg-white px-7 py-5 rounded-2xl shadow border border-slate-200 text-center">00</div>
-      <span id="pub-clock-s" class="text-3xl font-bold text-slate-400 self-end mb-5">00</span>
+    <!-- Relógio premium -->
+    <div class="flex items-center gap-4 mt-2">
+      <div id="pub-clock-h" class="clock-digit px-7 py-5 text-7xl md:text-8xl font-black tracking-tighter text-slate-900">00</div>
+      <span class="text-5xl md:text-6xl font-black text-primary animate-pulse leading-none" style="margin-bottom:4px">:</span>
+      <div id="pub-clock-m" class="clock-digit px-7 py-5 text-7xl md:text-8xl font-black tracking-tighter text-slate-900">00</div>
+      <div class="self-end mb-4 flex flex-col items-start gap-0.5">
+        <span id="pub-clock-s" class="text-2xl font-bold text-slate-400 tabular-nums">00</span>
+      </div>
     </div>
-    <p id="pub-clock-date" class="text-slate-500 font-medium uppercase tracking-widest text-sm"></p>
+    <p id="pub-clock-date" class="text-slate-400 font-semibold text-xs uppercase tracking-widest"></p>
   </div>
 
   <!-- Cards dos funcionários -->
-  <div class="flex-1 flex flex-col items-center px-6 pb-6">
-    <p class="text-slate-400 text-xs font-bold uppercase tracking-widest mb-4">Selecione seu nome para registrar o ponto</p>
-    <div id="pub-func-cards" class="grid grid-cols-1 sm:grid-cols-3 gap-5 w-full max-w-2xl"></div>
+  <div class="flex-1 flex flex-col items-center px-6 pb-8">
+    <p class="text-slate-400 text-xs font-bold uppercase tracking-widest mb-5">Toque no seu nome para registrar o ponto</p>
+    <div id="pub-func-cards" class="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full max-w-2xl"></div>
   </div>
 
   <!-- Rodapé: botão admin -->
   <div class="flex justify-center pb-8">
-    <button onclick="abrirLoginAdmin()" class="flex items-center gap-2 text-slate-400 hover:text-slate-600 text-xs font-semibold px-4 py-2 rounded-lg hover:bg-slate-200 transition-all">
-      <span class="material-symbols-outlined text-base">settings</span>Acesso Administrativo
+    <button onclick="abrirLoginAdmin()" class="flex items-center gap-2 text-slate-400 hover:text-slate-600 text-xs font-semibold px-4 py-2 rounded-xl hover:bg-white/70 transition-all">
+      <span class="material-symbols-outlined text-base">admin_panel_settings</span>Acesso Administrativo
     </button>
   </div>
 </div>
@@ -145,17 +250,29 @@
 
     <!-- 4 botões de ponto -->
     <section class="w-full grid grid-cols-2 md:grid-cols-4 gap-4">
-      <button onclick="registrarPontoFunc('entrada')" class="flex flex-col items-center justify-center gap-3 p-6 bg-primary text-white rounded-2xl shadow-lg hover:bg-blue-700 transition-all hover:-translate-y-1">
-        <span class="material-symbols-outlined text-4xl">login</span><span class="font-bold text-lg">Entrada</span>
+      <button onclick="registrarPontoFunc('entrada')"
+        class="flex flex-col items-center justify-center gap-3 p-6 bg-primary text-white rounded-2xl transition-all duration-200 hover:-translate-y-1 active:scale-95"
+        style="box-shadow:0 8px 24px rgba(0,87,255,0.28),0 2px 8px rgba(0,87,255,0.18)">
+        <span class="material-symbols-outlined text-4xl" style="font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 40">login</span>
+        <span class="font-bold text-base">Entrada</span>
       </button>
-      <button onclick="registrarPontoFunc('saida_intervalo')" class="flex flex-col items-center justify-center gap-3 p-6 bg-white border border-slate-200 rounded-2xl shadow-sm hover:border-primary transition-all hover:-translate-y-1">
-        <span class="material-symbols-outlined text-4xl text-primary">restaurant</span><span class="font-bold text-lg text-slate-700">Saída Intervalo</span>
+      <button onclick="registrarPontoFunc('saida_intervalo')"
+        class="flex flex-col items-center justify-center gap-3 p-6 bg-white border border-slate-100 rounded-2xl transition-all duration-200 hover:-translate-y-1 hover:border-primary/30 active:scale-95"
+        style="box-shadow:0 2px 8px rgba(0,0,0,0.06)">
+        <span class="material-symbols-outlined text-4xl text-amber-500" style="font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 40">restaurant</span>
+        <span class="font-bold text-sm text-slate-700">Saída Intervalo</span>
       </button>
-      <button onclick="registrarPontoFunc('volta_intervalo')" class="flex flex-col items-center justify-center gap-3 p-6 bg-white border border-slate-200 rounded-2xl shadow-sm hover:border-primary transition-all hover:-translate-y-1">
-        <span class="material-symbols-outlined text-4xl text-primary">assignment_return</span><span class="font-bold text-lg text-slate-700">Volta Intervalo</span>
+      <button onclick="registrarPontoFunc('volta_intervalo')"
+        class="flex flex-col items-center justify-center gap-3 p-6 bg-white border border-slate-100 rounded-2xl transition-all duration-200 hover:-translate-y-1 hover:border-primary/30 active:scale-95"
+        style="box-shadow:0 2px 8px rgba(0,0,0,0.06)">
+        <span class="material-symbols-outlined text-4xl text-primary" style="font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 40">keyboard_return</span>
+        <span class="font-bold text-sm text-slate-700">Volta Intervalo</span>
       </button>
-      <button onclick="registrarPontoFunc('saida')" class="flex flex-col items-center justify-center gap-3 p-6 bg-slate-900 text-white rounded-2xl shadow-lg hover:bg-black transition-all hover:-translate-y-1">
-        <span class="material-symbols-outlined text-4xl">logout</span><span class="font-bold text-lg">Saída</span>
+      <button onclick="registrarPontoFunc('saida')"
+        class="flex flex-col items-center justify-center gap-3 p-6 bg-slate-900 text-white rounded-2xl transition-all duration-200 hover:-translate-y-1 active:scale-95"
+        style="box-shadow:0 8px 24px rgba(15,23,42,0.25),0 2px 8px rgba(15,23,42,0.15)">
+        <span class="material-symbols-outlined text-4xl" style="font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 40">logout</span>
+        <span class="font-bold text-base">Saída</span>
       </button>
     </section>
 
@@ -208,9 +325,14 @@
 <div class="flex min-h-screen w-full">
   <!-- ===== SIDEBAR ===== -->
   <aside class="w-64 bg-white border-r border-slate-200 flex flex-col fixed h-full z-50">
-    <div class="p-6 flex items-center gap-3">
-      <div class="bg-primary rounded-lg p-2"><span class="material-symbols-outlined text-white">storefront</span></div>
-      <div><h1 class="text-slate-900 text-lg font-bold leading-none">FS Celulares</h1><span class="text-slate-500 text-xs mt-1 block">Gestão de Ponto</span></div>
+    <div class="p-6 flex items-center gap-3 border-b border-slate-100">
+      <div class="bg-primary rounded-xl p-2.5" style="box-shadow:0 4px 12px rgba(0,87,255,0.2)">
+        <span class="material-symbols-outlined text-white" style="font-variation-settings:'FILL' 1,'wght' 500,'GRAD' 0,'opsz' 24">storefront</span>
+      </div>
+      <div>
+        <h1 class="text-slate-900 text-base font-extrabold leading-none tracking-tight">FS Celulares</h1>
+        <span class="text-slate-400 text-xs mt-1 block font-medium">Gestão de Ponto</span>
+      </div>
     </div>
     <nav class="flex-1 mt-4 px-4 space-y-1">
       <a onclick="showPage('dashboard')" class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg cursor-pointer transition-colors text-slate-600 hover:bg-slate-100" data-page="dashboard"><span class="material-symbols-outlined">dashboard</span><span class="text-sm font-medium">Dashboard</span></a>
@@ -246,8 +368,9 @@
         </div>
       </div>
       <div class="flex items-center gap-3">
-        <span class="text-xs text-green-600 font-bold bg-green-50 px-2 py-1 rounded-full flex items-center gap-1"><span class="material-symbols-outlined text-sm">save</span>Auto-salvo</span>
-        <button class="size-10 flex items-center justify-center rounded-lg bg-slate-100 text-slate-600"><span class="material-symbols-outlined">notifications</span></button>
+        <span class="text-xs text-green-700 font-semibold bg-green-50 border border-green-100 px-3 py-1 rounded-full flex items-center gap-1.5">
+          <span class="material-symbols-outlined text-sm" style="font-variation-settings:'FILL' 1,'wght' 500,'GRAD' 0,'opsz' 20">cloud_done</span>Auto-salvo
+        </span>
       </div>
     </header>
     <!-- ===== DASHBOARD ===== -->
@@ -430,7 +553,7 @@
         <div class="overflow-x-auto">
           <table class="w-full text-left">
             <thead class="bg-slate-50 text-slate-500 text-xs font-bold uppercase tracking-wider">
-              <tr><th class="px-6 py-3">Data/Hora</th><th class="px-6 py-3">Ação</th><th class="px-6 py-3">Funcionário</th><th class="px-6 py-3">Detalhe</th><th class="px-6 py-3">Tipo</th></tr>
+              <tr><th class="px-6 py-3">Data/Hora</th><th class="px-6 py-3">Tipo</th><th class="px-6 py-3">Funcionário</th><th class="px-6 py-3">Detalhe</th></tr>
             </thead>
             <tbody id="hist-table" class="divide-y divide-slate-100"></tbody>
           </table>
@@ -588,11 +711,7 @@ async function initSupabase() {
       key = saved.key || '';
     } catch(e) {}
   }
-  // 3. Fallback final: credenciais do projeto
-  if (!url || !key) {
-    url = 'https://ebhzsddqmjnxzcecgyrv.supabase.co';
-    key = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImViaHpzZGRxbWpueHpjZWNneXJ2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEyNTk2MzMsImV4cCI6MjA4NjgzNTYzM30.FiQzaDQ7zifJsHJdVwAhP96y_gA_pPPfZtfGp_ZeWJk';
-  }
+  // 3. Se ainda não tem credenciais, o painel de configurações vai orientar o usuário
   if (url && key && typeof window.supabase !== 'undefined') {
     supabase = window.supabase.createClient(url, key);
   }
@@ -1214,14 +1333,14 @@ function renderHistorico() {
     tbody.innerHTML = '<tr><td colspan="5" class="px-6 py-12 text-center text-slate-400">Nenhuma ação registrada ainda</td></tr>'; return;
   }
   const tipoCores = { ponto:'bg-blue-100 text-blue-700', cadastro:'bg-purple-100 text-purple-700' };
-  const tipoLabels = { ponto:'Registro de Ponto', cadastro:'Cadastro' };
+  const tipoLabels = { ponto:'Ponto', cadastro:'Cadastro' };
+  const tipoIcons = { ponto:'fingerprint', cadastro:'person_edit' };
   tbody.innerHTML = state.historico.map(h=>`
     <tr class="hover:bg-slate-50 transition-colors">
-      <td class="px-6 py-3 text-xs text-slate-500 font-mono">${h.dataHora}</td>
-      <td class="px-6 py-3 text-sm font-semibold">${tipoLabels[h.tipo]||h.tipo}</td>
-      <td class="px-6 py-3 text-sm text-slate-600">${h.funcNome}</td>
+      <td class="px-6 py-3 text-xs text-slate-500 font-mono whitespace-nowrap">${h.dataHora}</td>
+      <td class="px-6 py-3"><span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold ${tipoCores[h.tipo]||'bg-slate-100 text-slate-600'}"><span class="material-symbols-outlined" style="font-size:13px">${tipoIcons[h.tipo]||'info'}</span>${tipoLabels[h.tipo]||h.tipo}</span></td>
+      <td class="px-6 py-3 text-sm font-semibold text-slate-700">${h.funcNome}</td>
       <td class="px-6 py-3 text-sm text-slate-500">${h.detalhe}</td>
-      <td class="px-6 py-3"><span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${tipoCores[h.tipo]||'bg-slate-100 text-slate-600'}">${h.tipo}</span></td>
     </tr>`).join('');
 }
 function limparHistorico() {
@@ -1527,13 +1646,13 @@ function renderTelaPublica() {
   container.innerHTML = state.funcionarios.map(f => {
     const s = getStatusHoje(f.id);
     return `<button onclick="iniciarSessaoFuncionario(${f.id})"
-      class="func-card bg-white border border-slate-200 rounded-2xl p-7 flex flex-col items-center gap-3 shadow-sm cursor-pointer w-full">
-      <div class="size-16 rounded-full ${f.cor} flex items-center justify-center font-extrabold text-2xl">${iniciais(f.nome)}</div>
-      <div class="text-center">
-        <p class="font-extrabold text-slate-900 text-base leading-tight">${f.nome}</p>
-        <p class="text-slate-500 text-xs mt-0.5">${f.cargo}</p>
+      class="func-card bg-white border border-slate-100 rounded-2xl p-6 flex flex-col items-center gap-4 cursor-pointer w-full fade-up">
+      <div class="size-16 rounded-full ${f.cor} flex items-center justify-center font-bold text-xl ring-2 ring-white shadow-sm">${iniciais(f.nome)}</div>
+      <div class="text-center flex-1">
+        <p class="font-bold text-slate-900 text-base leading-tight tracking-tight">${f.nome}</p>
+        <p class="text-slate-400 text-xs mt-1 font-medium">${f.cargo}</p>
       </div>
-      <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${s.cor}">${s.status}</span>
+      <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${s.cor}">${s.status}</span>
     </button>`;
   }).join('');
 }
