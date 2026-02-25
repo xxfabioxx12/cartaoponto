@@ -4,6 +4,11 @@
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <title>FS Celulares — Sistema de Ponto</title>
+<meta name="description" content="Sistema de Ponto Eletrônico — FS Celulares. Registro de ponto com controle de presença, banco de horas e relatórios."/>
+<meta name="theme-color" content="#0057FF"/>
+<meta property="og:title" content="FS Celulares — Sistema de Ponto"/>
+<meta property="og:description" content="Sistema de Ponto Eletrônico — FS Celulares"/>
+<meta property="og:type" content="website"/>
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
@@ -368,8 +373,8 @@
         </div>
       </div>
       <div class="flex items-center gap-3">
-        <span class="text-xs text-green-700 font-semibold bg-green-50 border border-green-100 px-3 py-1 rounded-full flex items-center gap-1.5">
-          <span class="material-symbols-outlined text-sm" style="font-variation-settings:'FILL' 1,'wght' 500,'GRAD' 0,'opsz' 20">cloud_done</span>Auto-salvo
+        <span id="sync-badge" class="text-xs text-amber-700 font-semibold bg-amber-50 border border-amber-100 px-3 py-1 rounded-full flex items-center gap-1.5">
+          <span class="material-symbols-outlined text-sm" style="font-variation-settings:'FILL' 1,'wght' 500,'GRAD' 0,'opsz' 20">cloud_off</span>Local
         </span>
       </div>
     </header>
@@ -464,11 +469,15 @@
       </div>
       <!-- Filtros -->
       <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm mb-6 flex flex-wrap gap-4 items-end">
-        <div class="flex flex-col min-w-[160px] flex-1">
+        <div class="flex flex-col min-w-[120px]">
           <label class="text-slate-700 text-xs font-bold uppercase tracking-wider pb-2">Mês</label>
           <select id="filtro-mes" onchange="renderRelatorio()" class="rounded-lg border border-slate-200 bg-slate-50 h-11 px-3 text-sm focus:ring-2 focus:ring-primary">
             <option value="0">Janeiro</option><option value="1">Fevereiro</option><option value="2">Março</option><option value="3">Abril</option><option value="4">Maio</option><option value="5">Junho</option><option value="6">Julho</option><option value="7">Agosto</option><option value="8">Setembro</option><option value="9">Outubro</option><option value="10">Novembro</option><option value="11">Dezembro</option>
           </select>
+        </div>
+        <div class="flex flex-col min-w-[100px]">
+          <label class="text-slate-700 text-xs font-bold uppercase tracking-wider pb-2">Ano</label>
+          <select id="filtro-ano" onchange="renderRelatorio()" class="rounded-lg border border-slate-200 bg-slate-50 h-11 px-3 text-sm focus:ring-2 focus:ring-primary"></select>
         </div>
         <div class="flex flex-col min-w-[160px] flex-1">
           <label class="text-slate-700 text-xs font-bold uppercase tracking-wider pb-2">Funcionário</label>
@@ -499,9 +508,17 @@
     </div>
     <!-- ===== BANCO DE HORAS ===== -->
     <div id="page-banco_horas" class="page p-8">
-      <div class="mb-8">
-        <h1 class="text-3xl font-extrabold tracking-tight">Banco de Horas</h1>
-        <p class="mt-1 text-slate-500">Saldo acumulado de horas extras e débitos.</p>
+      <div class="mb-6 flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div>
+          <h1 class="text-3xl font-extrabold tracking-tight">Banco de Horas</h1>
+          <p class="mt-1 text-slate-500">Saldo acumulado de horas extras e débitos.</p>
+        </div>
+        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-end gap-4">
+          <div class="flex flex-col min-w-[100px]">
+            <label class="text-slate-700 text-xs font-bold uppercase tracking-wider pb-2">Ano</label>
+            <select id="banco-filtro-ano" onchange="renderBancoHoras()" class="rounded-lg border border-slate-200 bg-slate-50 h-11 px-3 text-sm focus:ring-2 focus:ring-primary"></select>
+          </div>
+        </div>
       </div>
       <div id="banco-cards" class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8"></div>
       <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
@@ -514,13 +531,17 @@
       <div class="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
         <div><h1 class="text-3xl font-extrabold tracking-tight">Relatório de Atrasos</h1><p class="mt-1 text-slate-500">Análise de padrões de atraso por funcionário.</p></div>
       </div>
-      <!-- Filtro de mês -->
+      <!-- Filtro de mês/ano -->
       <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm mb-6 flex flex-wrap gap-4 items-end">
-        <div class="flex flex-col min-w-[160px] flex-1">
+        <div class="flex flex-col min-w-[120px]">
           <label class="text-slate-700 text-xs font-bold uppercase tracking-wider pb-2">Mês</label>
           <select id="atrasos-filtro-mes" onchange="renderRelatorioAtrasos()" class="rounded-lg border border-slate-200 bg-slate-50 h-11 px-3 text-sm focus:ring-2 focus:ring-primary">
             <option value="0">Janeiro</option><option value="1">Fevereiro</option><option value="2">Março</option><option value="3">Abril</option><option value="4">Maio</option><option value="5">Junho</option><option value="6">Julho</option><option value="7">Agosto</option><option value="8">Setembro</option><option value="9">Outubro</option><option value="10">Novembro</option><option value="11">Dezembro</option>
           </select>
+        </div>
+        <div class="flex flex-col min-w-[100px]">
+          <label class="text-slate-700 text-xs font-bold uppercase tracking-wider pb-2">Ano</label>
+          <select id="atrasos-filtro-ano" onchange="renderRelatorioAtrasos()" class="rounded-lg border border-slate-200 bg-slate-50 h-11 px-3 text-sm focus:ring-2 focus:ring-primary"></select>
         </div>
       </div>
       <!-- Cards de resumo por funcionário -->
@@ -678,6 +699,21 @@
     </div>
   </div>
 </div>
+<!-- ===== MODAL CONFIRMAÇÃO ===== -->
+<div id="modal-confirm" class="modal-overlay fixed inset-0 z-[200] items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm">
+  <div class="w-full max-w-sm bg-white rounded-2xl shadow-2xl overflow-hidden">
+    <div class="px-6 py-5 border-b border-slate-100">
+      <h3 id="confirm-title" class="text-lg font-bold text-slate-900">Confirmar</h3>
+    </div>
+    <div class="p-6">
+      <p id="confirm-msg" class="text-slate-600 text-sm leading-relaxed"></p>
+    </div>
+    <div class="px-6 py-4 bg-slate-50 flex justify-end gap-3">
+      <button id="confirm-cancel" class="px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">Cancelar</button>
+      <button id="confirm-ok" class="px-6 py-2 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-lg shadow-md transition-all">Confirmar</button>
+    </div>
+  </div>
+</div>
 <!-- ===== TOAST ===== -->
 <div id="toast" class="toast fixed bottom-8 right-8 bg-green-600 text-white px-6 py-4 rounded-xl shadow-2xl flex items-center gap-4 z-50">
   <span id="toast-icon" class="material-symbols-outlined">task_alt</span>
@@ -688,6 +724,39 @@
 // SEGURANÇA — SHA-256 com salt para senha admin
 // ============================================================
 const SENHA_SALT = 'fs_celulares_2026';
+
+// ============================================================
+// XSS PROTECTION — escapeHtml
+// ============================================================
+function escapeHtml(str) {
+  if (str == null) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+// ============================================================
+// CONFIRM DIALOG — substitui confirm() nativo
+// ============================================================
+function confirmDialog(titulo, mensagem, onConfirm) {
+  document.getElementById('confirm-title').textContent = titulo;
+  document.getElementById('confirm-msg').textContent = mensagem;
+  const modal = document.getElementById('modal-confirm');
+  modal.classList.add('open');
+  const okBtn = document.getElementById('confirm-ok');
+  const cancelBtn = document.getElementById('confirm-cancel');
+  function fechar() {
+    modal.classList.remove('open');
+    okBtn.removeEventListener('click', onOk);
+    cancelBtn.removeEventListener('click', fechar);
+  }
+  function onOk() { fechar(); onConfirm(); }
+  okBtn.addEventListener('click', onOk);
+  cancelBtn.addEventListener('click', fechar);
+}
 
 async function hashSenha(senha) {
   const enc = new TextEncoder();
@@ -738,13 +807,25 @@ async function initSupabase() {
 
 function atualizarStatusSupabase() {
   const el = document.getElementById('cfg-supa-status');
-  if (!el) return;
-  if (supabase) {
-    el.className = 'text-sm font-semibold px-3 py-2 rounded-lg bg-green-50 text-green-700';
-    el.textContent = 'Conectado ao banco de dados (dados sincronizados entre dispositivos)';
-  } else {
-    el.className = 'text-sm font-semibold px-3 py-2 rounded-lg bg-red-50 text-red-700';
-    el.textContent = 'Não conectado — dados salvos apenas neste dispositivo';
+  if (el) {
+    if (supabase) {
+      el.className = 'text-sm font-semibold px-3 py-2 rounded-lg bg-green-50 text-green-700';
+      el.textContent = 'Conectado ao banco de dados (dados sincronizados entre dispositivos)';
+    } else {
+      el.className = 'text-sm font-semibold px-3 py-2 rounded-lg bg-red-50 text-red-700';
+      el.textContent = 'Não conectado — dados salvos apenas neste dispositivo';
+    }
+  }
+  // Atualizar badge do header
+  const badge = document.getElementById('sync-badge');
+  if (badge) {
+    if (supabase) {
+      badge.innerHTML = `<span class="material-symbols-outlined text-sm" style="font-variation-settings:'FILL' 1,'wght' 500,'GRAD' 0,'opsz' 20">cloud_done</span>Sincronizado`;
+      badge.className = 'text-xs text-green-700 font-semibold bg-green-50 border border-green-100 px-3 py-1 rounded-full flex items-center gap-1.5';
+    } else {
+      badge.innerHTML = `<span class="material-symbols-outlined text-sm" style="font-variation-settings:'FILL' 1,'wght' 500,'GRAD' 0,'opsz' 20">cloud_off</span>Local`;
+      badge.className = 'text-xs text-amber-700 font-semibold bg-amber-50 border border-amber-100 px-3 py-1 rounded-full flex items-center gap-1.5';
+    }
   }
 }
 
@@ -981,9 +1062,9 @@ function renderDashboard() {
     const t = getFuncTurno(f);
     const mins = calcHorasDia(f.id, todayStr());
     return `<tr class="hover:bg-slate-50 transition-colors">
-      <td class="px-6 py-4 flex items-center gap-3"><div class="size-8 rounded-full ${f.cor} flex items-center justify-center font-bold text-xs">${iniciais(f.nome)}</div><span class="text-sm font-semibold">${f.nome}</span></td>
+      <td class="px-6 py-4 flex items-center gap-3"><div class="size-8 rounded-full ${f.cor} flex items-center justify-center font-bold text-xs">${iniciais(f.nome)}</div><span class="text-sm font-semibold">${escapeHtml(f.nome)}</span></td>
       <td class="px-6 py-4"><span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${s.cor}">${s.status}</span></td>
-      <td class="px-6 py-4 text-xs text-slate-500">${t ? `${f.turno}<br><span class="font-bold">${t.entrada}–${t.saida}</span>` : '—'}</td>
+      <td class="px-6 py-4 text-xs text-slate-500">${t ? `${escapeHtml(f.turno)}<br><span class="font-bold">${t.entrada}–${t.saida}</span>` : '—'}</td>
       <td class="px-6 py-4 text-sm text-slate-500">${s.entrada}</td>
       <td class="px-6 py-4 text-sm font-semibold text-slate-700">${minToHHMM(mins)}</td>
     </tr>`;
@@ -1054,9 +1135,9 @@ function renderFuncionarios() {
     const t = getFuncTurno(f);
     const horario = t ? `${t.entrada}–${t.saida}` : '—';
     return `<tr class="hover:bg-slate-50 transition-colors group">
-      <td class="px-6 py-4"><div class="flex items-center gap-3"><div class="h-10 w-10 rounded-full ${f.cor} flex items-center justify-center font-bold text-sm">${iniciais(f.nome)}</div><div><p class="font-semibold">${f.nome}</p><p class="text-xs text-slate-500">ID: ${f.id} · ${f.carga||8}h/dia</p></div></div></td>
-      <td class="px-6 py-4 text-sm text-slate-600">${f.cargo}</td>
-      <td class="px-6 py-4"><span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600">${f.turno}</span><p class="text-xs text-slate-400 mt-1">${horario}</p></td>
+      <td class="px-6 py-4"><div class="flex items-center gap-3"><div class="h-10 w-10 rounded-full ${f.cor} flex items-center justify-center font-bold text-sm">${iniciais(f.nome)}</div><div><p class="font-semibold">${escapeHtml(f.nome)}</p><p class="text-xs text-slate-500">ID: ${f.id} · ${f.carga||8}h/dia</p></div></div></td>
+      <td class="px-6 py-4 text-sm text-slate-600">${escapeHtml(f.cargo)}</td>
+      <td class="px-6 py-4"><span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600">${escapeHtml(f.turno)}</span><p class="text-xs text-slate-400 mt-1">${horario}</p></td>
       <td class="px-6 py-4"><span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${s.cor}">${s.status}</span></td>
       <td class="px-6 py-4 text-right"><div class="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
         <button onclick="editarFuncionario(${f.id})" class="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-lg"><span class="material-symbols-outlined text-xl">edit</span></button>
@@ -1113,11 +1194,12 @@ function editarFuncionario(id) {
 }
 function excluirFuncionario(id) {
   const f = state.funcionarios.find(f=>f.id===id);
-  if (!confirm(`Excluir ${f?.nome}?`)) return;
-  addHistorico('cadastro', id, `Funcionário excluído: ${f?.nome}`);
-  state.funcionarios = state.funcionarios.filter(f=>f.id!==id);
-  saveState(); renderFuncionarios();
-  showToast('Removido!', 'Funcionário excluído.', 'bg-red-600', 'delete');
+  confirmDialog('Excluir Funcionário', `Deseja excluir "${f?.nome}"? Esta ação não pode ser desfeita.`, () => {
+    addHistorico('cadastro', id, `Funcionário excluído: ${f?.nome}`);
+    state.funcionarios = state.funcionarios.filter(f=>f.id!==id);
+    saveState(); renderFuncionarios();
+    showToast('Removido!', 'Funcionário excluído.', 'bg-red-600', 'delete');
+  });
 }
 // ============================================================
 // RELATÓRIOS
@@ -1131,10 +1213,21 @@ function getRowsRelatorio(mes, ano, funcFiltro) {
   regsDoMes.forEach(r=>{ const k=`${r.funcId}_${r.data}`; if(!dias[k]) dias[k]={funcId:r.funcId,data:r.data,regs:[]}; dias[k].regs.push(r); });
   return Object.values(dias).sort((a,b)=>a.data.localeCompare(b.data));
 }
+function popularSelects() {
+  const anoAtual = new Date().getFullYear();
+  const anos = [anoAtual - 1, anoAtual, anoAtual + 1];
+  ['filtro-ano','atrasos-filtro-ano','banco-filtro-ano'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const val = el.value || String(anoAtual);
+    el.innerHTML = anos.map(a => `<option value="${a}" ${String(a)===val?'selected':''}>${a}</option>`).join('');
+  });
+}
+
 function renderRelatorio() {
   const mes = parseInt(document.getElementById('filtro-mes').value);
-  const funcFiltro = document.getElementById('filtro-func').value || 'todos';
-  const ano = new Date().getFullYear();
+  const anoEl = document.getElementById('filtro-ano');
+  const ano = anoEl ? parseInt(anoEl.value) || new Date().getFullYear() : new Date().getFullYear();
   const selFunc = document.getElementById('filtro-func');
   const valAtual = selFunc.value;
   selFunc.innerHTML = '<option value="todos">Todos</option>';
@@ -1176,7 +1269,7 @@ function renderRelatorio() {
     const esperado = rows.filter(d=>d.funcId===f.id && d.regs.find(r=>r.tipo==='saida')).length * (f.carga||8) * 60;
     const extra = totalF - esperado;
     return `<div class="flex items-center gap-4">
-      <div class="w-32 text-sm font-semibold text-slate-700 truncate">${f.nome}</div>
+      <div class="w-32 text-sm font-semibold text-slate-700 truncate">${escapeHtml(f.nome)}</div>
       <div class="flex-1 bg-slate-100 rounded-full h-6 overflow-hidden">
         <div class="h-full rounded-full ${extra>0?'bg-green-500':extra<0?'bg-red-400':'bg-primary'} bar-chart-bar flex items-center justify-end pr-3" style="width:${Math.max(pct,2)}%">
           <span class="text-white text-xs font-bold">${minToHHMM(totalF)}</span>
@@ -1202,7 +1295,7 @@ function renderRelatorio() {
     const statusColor = completo?'bg-green-100 text-green-700':entrada?'bg-yellow-100 text-yellow-700':'bg-red-100 text-red-700';
     const extraClass = extra>0?'horas-extra':extra<0?'horas-falta':'';
     return `<tr class="hover:bg-slate-50 transition-colors">
-      <td class="px-5 py-3 text-sm font-semibold">${func?.nome||'—'}</td>
+      <td class="px-5 py-3 text-sm font-semibold">${escapeHtml(func?.nome||'—')}</td>
       <td class="px-5 py-3 text-sm text-slate-600">${formatDate(d.data)}</td>
       <td class="px-5 py-3 text-sm">${entrada?entrada.hora:'—'}</td>
       <td class="px-5 py-3 text-sm">${si?si.hora:'—'}</td>
@@ -1218,11 +1311,14 @@ function renderRelatorio() {
 // BANCO DE HORAS
 // ============================================================
 function renderBancoHoras() {
-  const ano = new Date().getFullYear();
+  const anoEl = document.getElementById('banco-filtro-ano');
+  const ano = anoEl ? parseInt(anoEl.value) || new Date().getFullYear() : new Date().getFullYear();
   let totalExtra=0, totalFalta=0;
+  const anoAtual = new Date().getFullYear();
+  const mesMax = ano < anoAtual ? 11 : (ano === anoAtual ? new Date().getMonth() : -1);
   const funcData = state.funcionarios.map(f=>{
     let saldo = 0;
-    for(let m=0;m<=new Date().getMonth();m++){
+    for(let m=0; m<=mesMax; m++){
       const rows = getRowsRelatorio(m, ano, String(f.id));
       rows.forEach(d=>{ saldo += calcHorasExtra(f.id, d.data); });
     }
@@ -1248,7 +1344,7 @@ function renderBancoHoras() {
     return `<div class="px-6 py-5 flex items-center justify-between hover:bg-slate-50 transition-colors">
       <div class="flex items-center gap-4">
         <div class="h-11 w-11 rounded-full ${func.cor} flex items-center justify-center font-bold">${iniciais(func.nome)}</div>
-        <div><p class="font-semibold">${func.nome}</p><p class="text-xs text-slate-500">${func.cargo} · ${func.carga||8}h/dia</p></div>
+        <div><p class="font-semibold">${escapeHtml(func.nome)}</p><p class="text-xs text-slate-500">${escapeHtml(func.cargo)} · ${func.carga||8}h/dia</p></div>
       </div>
       <div class="text-right">
         <p class="text-xl font-black ${saldo>0?'text-green-600':saldo<0?'text-red-600':'text-slate-600'}">${minToHHMMSigned(saldo)}</p>
@@ -1262,7 +1358,8 @@ function renderBancoHoras() {
 // ============================================================
 function renderRelatorioAtrasos() {
   const mes = parseInt(document.getElementById('atrasos-filtro-mes').value);
-  const ano = new Date().getFullYear();
+  const anoEl = document.getElementById('atrasos-filtro-ano');
+  const ano = anoEl ? parseInt(anoEl.value) || new Date().getFullYear() : new Date().getFullYear();
   const atrasosPorFunc = {};
   const diasAtrasados = [];
   state.funcionarios.forEach(f=>{
@@ -1298,7 +1395,7 @@ function renderRelatorioAtrasos() {
       <div class="flex items-start justify-between mb-4">
         <div class="flex items-center gap-3">
           <div class="size-10 rounded-full ${func.cor} flex items-center justify-center font-bold text-white text-sm">${iniciais(func.nome)}</div>
-          <div><p class="font-bold text-slate-800">${func.nome}</p><p class="text-xs text-slate-500">${func.cargo}</p></div>
+          <div><p class="font-bold text-slate-800">${escapeHtml(func.nome)}</p><p class="text-xs text-slate-500">${escapeHtml(func.cargo)}</p></div>
         </div>
         ${temAlerta?`<span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold bg-red-100 text-red-700"><span class="material-symbols-outlined" style="font-size:14px">warning</span>ALERTA</span>`:''}
       </div>
@@ -1329,7 +1426,7 @@ function renderRelatorioAtrasos() {
     const turno = state.turnos.find(t=>t.nome===func.turno);
     const horarioEsperado = turno?turno.entrada:'—';
     return `<tr class="hover:bg-slate-50 transition-colors">
-      <td class="px-5 py-3 text-sm font-semibold">${func?.nome||'—'}</td>
+      <td class="px-5 py-3 text-sm font-semibold">${escapeHtml(func?.nome||'—')}</td>
       <td class="px-5 py-3 text-sm text-slate-600">${formatDate(data)}</td>
       <td class="px-5 py-3 text-sm">${horarioEsperado}</td>
       <td class="px-5 py-3 text-sm font-semibold">${entrada}</td>
@@ -1341,8 +1438,8 @@ function renderRelatorioAtrasos() {
 // HISTÓRICO DE ALTERAÇÕES
 // ============================================================
 function addHistorico(tipo, funcId, detalhe) {
-  const func = state.funcionarios.find(f=>f.id===funcId);
-  state.historico.unshift({ dataHora:nowFull(), tipo, funcNome:func?.nome||'—', detalhe, id:Date.now() });
+  const func = funcId ? state.funcionarios.find(f => f.id === funcId) : null;
+  state.historico.unshift({ dataHora:nowFull(), tipo, funcNome: func?.nome || 'Sistema', detalhe, id:Date.now() });
   if (state.historico.length > 200) state.historico = state.historico.slice(0,200);
 }
 function renderHistorico() {
@@ -1357,15 +1454,16 @@ function renderHistorico() {
     <tr class="hover:bg-slate-50 transition-colors">
       <td class="px-6 py-3 text-xs text-slate-500 font-mono whitespace-nowrap">${h.dataHora}</td>
       <td class="px-6 py-3"><span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold ${tipoCores[h.tipo]||'bg-slate-100 text-slate-600'}"><span class="material-symbols-outlined" style="font-size:13px">${tipoIcons[h.tipo]||'info'}</span>${tipoLabels[h.tipo]||h.tipo}</span></td>
-      <td class="px-6 py-3 text-sm font-semibold text-slate-700">${h.funcNome}</td>
-      <td class="px-6 py-3 text-sm text-slate-500">${h.detalhe}</td>
+      <td class="px-6 py-3 text-sm font-semibold text-slate-700">${escapeHtml(h.funcNome)}</td>
+      <td class="px-6 py-3 text-sm text-slate-500">${escapeHtml(h.detalhe)}</td>
     </tr>`).join('');
 }
 function limparHistorico() {
-  if (!confirm('Limpar todo o histórico?')) return;
-  state.historico = [];
-  saveState(); renderHistorico();
-  showToast('Limpo!', 'Histórico apagado.', 'bg-red-600', 'delete');
+  confirmDialog('Limpar Histórico', 'Deseja apagar todo o histórico de ações? Esta ação não pode ser desfeita.', () => {
+    state.historico = [];
+    saveState(); renderHistorico();
+    showToast('Limpo!', 'Histórico apagado.', 'bg-red-600', 'delete');
+  });
 }
 // ============================================================
 // CONFIGURAÇÕES / ALTERAR SENHA
@@ -1430,7 +1528,7 @@ function renderTurnos() {
       <div class="flex justify-between items-start mb-4">
         <div class="flex items-center gap-3">
           <div class="p-2 bg-blue-50 rounded-lg text-primary"><span class="material-symbols-outlined">schedule</span></div>
-          <div><h3 class="font-bold text-slate-900">${t.nome}</h3><p class="text-xs text-slate-400">Tolerância: ${t.tolerancia||5}min</p></div>
+          <div><h3 class="font-bold text-slate-900">${escapeHtml(t.nome)}</h3><p class="text-xs text-slate-400">Tolerância: ${t.tolerancia||5}min</p></div>
         </div>
         <div class="flex gap-1">
           <button onclick="editarTurno(${t.id})" class="p-2 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-primary transition-colors"><span class="material-symbols-outlined">edit</span></button>
@@ -1472,7 +1570,7 @@ function salvarTurno(e) {
   const editId=parseInt(document.getElementById('turno-edit-id').value);
   if (editId) { const t=state.turnos.find(t=>t.id===editId); if(t){t.nome=nome;t.entrada=entrada;t.saida_int=saida_int;t.volta_int=volta_int;t.saida=saida;t.tolerancia=tolerancia;} }
   else state.turnos.push({id:state.nextTurnoId++,nome,entrada,saida_int,volta_int,saida,tolerancia});
-  addHistorico('cadastro', 0, `Turno "${nome}" ${editId?'editado':'criado'}`);
+  addHistorico('cadastro', null, `Turno "${nome}" ${editId?'editado':'criado'}`);
   saveState(); resetFormTurno(); renderTurnos();
   showToast('Salvo!', `Turno "${nome}" salvo.`);
 }
@@ -1488,19 +1586,21 @@ function editarTurno(id) {
   document.getElementById('form-turno-title').textContent=`Editar: ${t.nome}`;
 }
 function excluirTurno(id) {
-  if(!confirm('Excluir este turno?')) return;
   const t=state.turnos.find(t=>t.id===id);
-  addHistorico('cadastro', 0, `Turno "${t?.nome}" excluído`);
-  state.turnos=state.turnos.filter(t=>t.id!==id);
-  saveState(); renderTurnos();
-  showToast('Removido!','Turno excluído.','bg-red-600','delete');
+  confirmDialog('Excluir Turno', `Deseja excluir o turno "${t?.nome}"?`, () => {
+    addHistorico('cadastro', null, `Turno "${t?.nome}" excluído`);
+    state.turnos=state.turnos.filter(t=>t.id!==id);
+    saveState(); renderTurnos();
+    showToast('Removido!','Turno excluído.','bg-red-600','delete');
+  });
 }
 // ============================================================
 // EXPORTAÇÃO CSV
 // ============================================================
 function exportarCSV() {
   const mes=parseInt(document.getElementById('filtro-mes').value);
-  const ano=new Date().getFullYear();
+  const anoEl=document.getElementById('filtro-ano');
+  const ano=anoEl?parseInt(anoEl.value)||new Date().getFullYear():new Date().getFullYear();
   const funcFiltro=document.getElementById('filtro-func').value||'todos';
   const rows=getRowsRelatorio(mes,ano,funcFiltro);
   const header=['Funcionário','Data','Entrada','Saída Intervalo','Volta Intervalo','Saída','Horas Trabalhadas','Horas Extras','Status'];
@@ -1526,7 +1626,8 @@ function exportarCSV() {
 // ============================================================
 function exportarPDF() {
   const mes=parseInt(document.getElementById('filtro-mes').value);
-  const ano=new Date().getFullYear();
+  const anoEl=document.getElementById('filtro-ano');
+  const ano=anoEl?parseInt(anoEl.value)||new Date().getFullYear():new Date().getFullYear();
   const funcFiltro=document.getElementById('filtro-func').value||'todos';
   const rows=getRowsRelatorio(mes,ano,funcFiltro);
   try {
@@ -1608,6 +1709,22 @@ function closeSidebar() {
   overlay.classList.remove('open');
 }
 
+// ============================================================
+// SESSION TIMEOUT — Admin inatividade 30min
+// ============================================================
+let adminActivityTimer = null;
+const ADMIN_TIMEOUT_MS = 30 * 60 * 1000;
+
+function resetAdminTimer() {
+  clearTimeout(adminActivityTimer);
+  adminActivityTimer = setTimeout(() => {
+    if (state.sessao && state.sessao.tipo === 'admin') {
+      encerrarSessao();
+      showToast('Sessão encerrada', 'Inatividade de 30 minutos.', 'bg-slate-600', 'timer');
+    }
+  }, ADMIN_TIMEOUT_MS);
+}
+
 // SESSÕES
 // ============================================================
 function mostrarTela(qual) {
@@ -1649,10 +1766,18 @@ function iniciarSessaoAdmin() {
   mostrarTela('painel-admin');
   document.getElementById('filtro-mes').value = new Date().getMonth();
   document.getElementById('atrasos-filtro-mes').value = new Date().getMonth();
+  popularSelects();
   renderDashboard();
+  // Iniciar session timeout
+  resetAdminTimer();
+  document.addEventListener('click', resetAdminTimer);
+  document.addEventListener('keydown', resetAdminTimer);
 }
 
 function encerrarSessao() {
+  clearTimeout(adminActivityTimer);
+  document.removeEventListener('click', resetAdminTimer);
+  document.removeEventListener('keydown', resetAdminTimer);
   state.sessao = { tipo: null, funcId: null };
   saveState();
   renderTelaPublica();
@@ -1670,12 +1795,13 @@ function renderTelaPublica() {
   }
   container.innerHTML = state.funcionarios.map(f => {
     const s = getStatusHoje(f.id);
+    const borderTop = s.status==='Presente' ? 'border-t-4 border-t-green-500' : s.status==='Intervalo' ? 'border-t-4 border-t-amber-500' : s.status==='Saiu' ? 'border-t-4 border-t-slate-400' : 'border-t-4 border-t-transparent';
     return `<button onclick="iniciarSessaoFuncionario(${f.id})"
-      class="func-card bg-white border border-slate-100 rounded-2xl p-6 flex flex-col items-center gap-4 cursor-pointer w-full fade-up">
+      class="func-card bg-white border border-slate-100 ${borderTop} rounded-2xl p-6 flex flex-col items-center gap-4 cursor-pointer w-full fade-up">
       <div class="size-16 rounded-full ${f.cor} flex items-center justify-center font-bold text-xl ring-2 ring-white shadow-sm">${iniciais(f.nome)}</div>
       <div class="text-center flex-1">
-        <p class="font-bold text-slate-900 text-base leading-tight tracking-tight">${f.nome}</p>
-        <p class="text-slate-400 text-xs mt-1 font-medium">${f.cargo}</p>
+        <p class="font-bold text-slate-900 text-base leading-tight tracking-tight">${escapeHtml(f.nome)}</p>
+        <p class="text-slate-400 text-xs mt-1 font-medium">${escapeHtml(f.cargo)}</p>
       </div>
       <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${s.cor}">${s.status}</span>
     </button>`;
@@ -1696,8 +1822,23 @@ function fecharLoginAdmin() {
   document.getElementById('modal-login-admin').classList.remove('open');
 }
 
+let loginAttempts = 0;
+let loginBlockedUntil = 0;
+
 async function tentarLoginAdmin() {
-  const senha = document.getElementById('admin-senha-input').value;
+  const erroEl = document.getElementById('admin-senha-erro');
+  const inputEl = document.getElementById('admin-senha-input');
+
+  // Rate limiting
+  const agora = Date.now();
+  if (agora < loginBlockedUntil) {
+    const secs = Math.ceil((loginBlockedUntil - agora) / 1000);
+    erroEl.textContent = `Muitas tentativas. Aguarde ${secs}s.`;
+    erroEl.classList.remove('hidden');
+    return;
+  }
+
+  const senha = inputEl.value;
   const stored = state.config.senhaAdmin;
   let match = false;
 
@@ -1714,12 +1855,21 @@ async function tentarLoginAdmin() {
   }
 
   if (match) {
+    loginAttempts = 0;
+    loginBlockedUntil = 0;
     fecharLoginAdmin();
     iniciarSessaoAdmin();
   } else {
-    const erroEl = document.getElementById('admin-senha-erro');
+    loginAttempts++;
+    if (loginAttempts >= 5) {
+      loginBlockedUntil = Date.now() + 60000; // 60s bloqueio
+      loginAttempts = 0;
+      erroEl.textContent = 'Muitas tentativas incorretas. Aguarde 60 segundos.';
+    } else {
+      const restantes = 5 - loginAttempts;
+      erroEl.textContent = `Senha incorreta. ${restantes} tentativa(s) restante(s).`;
+    }
     erroEl.classList.remove('hidden');
-    const inputEl = document.getElementById('admin-senha-input');
     inputEl.classList.add('shake');
     setTimeout(() => inputEl.classList.remove('shake'), 450);
     inputEl.value = '';
@@ -1790,6 +1940,7 @@ function renderHistoricoHojeFunc(funcId) {
 // ============================================================
 document.getElementById('filtro-mes').value = new Date().getMonth();
 document.getElementById('atrasos-filtro-mes').value = new Date().getMonth();
+popularSelects();
 renderTelaPublica();
 mostrarTela('tela-publica');
 // Se havia sessão admin salva, retoma (funcionários sempre voltam à tela pública por segurança)
