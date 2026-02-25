@@ -1091,13 +1091,21 @@ function renderDashboard() {
   }).join('');
   // Alertas com validação de turno
   const alertas = [];
+  const agoraMins = timeToMin(nowStr());
   state.funcionarios.forEach(f=>{
     const s = getStatusHoje(f.id);
     const t = getFuncTurno(f);
-    if (s.status==='Ausente') alertas.push({cor:'red', msg:`${f.nome} não registrou ponto hoje.`});
+    // "Ausente" só alerta se o turno já deveria ter começado (entrada + tolerância + 30min de graça)
+    if (s.status==='Ausente' && t) {
+      const limiteAlerta = timeToMin(t.entrada) + (parseInt(t.tolerancia)||5) + 30;
+      if (agoraMins >= limiteAlerta) {
+        alertas.push({cor:'red', icon:'person_off', msg:`${escapeHtml(f.nome)} não registrou ponto hoje.`});
+      }
+    }
+    // Atraso na entrada
     if (t && s.entrada !== '—') {
-      const atraso = diffMin(t.entrada, s.entrada) - (t.tolerancia||5);
-      if (atraso > 0) alertas.push({cor:'yellow', msg:`${f.nome} chegou ${atraso}min atrasado(a). Turno: ${t.entrada}, Entrada: ${s.entrada}.`});
+      const atraso = diffMin(t.entrada, s.entrada) - (parseInt(t.tolerancia)||5);
+      if (atraso > 0) alertas.push({cor:'yellow', icon:'schedule', msg:`${escapeHtml(f.nome)} chegou ${atraso}min atrasado(a) — esperado ${t.entrada}, registrou ${s.entrada}.`});
     }
   });
   // Alertas de atrasos repetidos no mês
@@ -1109,22 +1117,22 @@ function renderDashboard() {
     const d = new Date(r.data+'T12:00:00');
     return d.getMonth()===mesAtual && d.getFullYear()===anoAtual;
   });
-  const diasAtraso = {};
-  regsDoMes.forEach(r=>{ const k=`${r.funcId}_${r.data}`; if(!diasAtraso[k]) diasAtraso[k]={funcId:r.funcId,data:r.data,regs:[]}; diasAtraso[k].regs.push(r); });
-  Object.values(diasAtraso).forEach(d=>{
+  const diasAtrasoMap = {};
+  regsDoMes.forEach(r=>{ const k=`${r.funcId}_${r.data}`; if(!diasAtrasoMap[k]) diasAtrasoMap[k]={funcId:r.funcId,data:r.data,regs:[]}; diasAtrasoMap[k].regs.push(r); });
+  Object.values(diasAtrasoMap).forEach(d=>{
     const atraso = calcAtrasoEntrada(d.funcId, d.data);
-    if (atraso>0) atrasosPorFunc[d.funcId]++;
+    if (atraso>0 && atrasosPorFunc[d.funcId]!=null) atrasosPorFunc[d.funcId]++;
   });
   Object.entries(atrasosPorFunc).forEach(([funcId,count])=>{
     if (count>=3) {
       const func = state.funcionarios.find(f=>f.id===parseInt(funcId));
-      if (func) alertas.push({cor:'red', msg:`⚠️ ${func.nome} tem ${count} atrasos este mês.`});
+      if (func) alertas.push({cor:'red', icon:'warning', msg:`${escapeHtml(func.nome)} tem ${count} atrasos este mês.`});
     }
   });
   const al = document.getElementById('alertas-lista');
   al.innerHTML = alertas.length ? alertas.map(a=>`
     <div class="flex gap-3 items-start pb-3 border-b border-slate-50 last:border-0">
-      <div class="size-2 rounded-full bg-${a.cor}-500 mt-2 shrink-0"></div>
+      <span class="material-symbols-outlined text-${a.cor}-500 text-base mt-0.5 shrink-0" style="font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 20">${a.icon}</span>
       <p class="text-sm text-slate-600">${a.msg}</p>
     </div>`).join('') : '<p class="text-center py-4 text-slate-400 text-sm">Nenhum alerta 🎉</p>';
 }
