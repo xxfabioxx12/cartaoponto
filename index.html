@@ -919,7 +919,10 @@ const TIPOS = {
   saida:          { label:'Saída',            icon:'logout',            color:'bg-slate-100 text-slate-600' },
 };
 function nowStr() { return new Date().toTimeString().slice(0,5); }
-function todayStr() { return new Date().toISOString().slice(0,10); }
+function todayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
 function nowFull() { return new Date().toLocaleString('pt-BR'); }
 function formatDate(d) { const [y,m,day]=d.split('-'); return `${day}/${m}/${y}`; }
 function iniciais(n) { return n.split(' ').map(p=>p[0]).join('').slice(0,2).toUpperCase(); }
