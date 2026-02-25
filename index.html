@@ -1232,9 +1232,9 @@ function renderRelatorio() {
   const anoEl = document.getElementById('filtro-ano');
   const ano = anoEl ? parseInt(anoEl.value) || new Date().getFullYear() : new Date().getFullYear();
   const selFunc = document.getElementById('filtro-func');
-  const valAtual = selFunc.value;
+  const funcFiltro = selFunc.value || 'todos';
   selFunc.innerHTML = '<option value="todos">Todos</option>';
-  state.funcionarios.forEach(f=>selFunc.innerHTML+=`<option value="${f.id}" ${String(f.id)===valAtual?'selected':''}>${f.nome}</option>`);
+  state.funcionarios.forEach(f=>selFunc.innerHTML+=`<option value="${f.id}" ${String(f.id)===funcFiltro?'selected':''}>${f.nome}</option>`);
   const rows = getRowsRelatorio(mes, ano, funcFiltro);
   let totalHoras=0, diasTrab=0, totalExtra=0;
   rows.forEach(d=>{
