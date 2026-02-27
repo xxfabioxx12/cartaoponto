@@ -857,6 +857,8 @@ async function loadFromCloud() {
       state = { ...cloudState, sessao: localSessao };
       if (!state.config) state.config = { senhaAdmin: btoa('admin123') };
       if (!state.sessao) state.sessao = { tipo: null, funcId: null };
+      if (!state.nextFuncId) state.nextFuncId = Math.max(0, ...state.funcionarios.map(f=>f.id)) + 1;
+      if (!state.nextTurnoId) state.nextTurnoId = Math.max(0, ...state.turnos.map(t=>t.id)) + 1;
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     }
   } catch(e) {}
@@ -907,6 +909,8 @@ let state = loadState() || JSON.parse(JSON.stringify(defaultState));
 // Migração: garante que dados antigos tenham os novos campos
 if (!state.config) state.config = { senhaAdmin: btoa('admin123') };
 if (!state.sessao) state.sessao = { tipo: null, funcId: null };
+if (!state.nextFuncId) state.nextFuncId = Math.max(0, ...state.funcionarios.map(f=>f.id)) + 1;
+if (!state.nextTurnoId) state.nextTurnoId = Math.max(0, ...state.turnos.map(t=>t.id)) + 1;
 // ============================================================
 // UTILITÁRIOS
 // ============================================================
@@ -1075,7 +1079,7 @@ function renderDashboard() {
   // Gráfico semana
   const chart = document.getElementById('week-chart');
   const dias = [];
-  for(let i=6;i>=0;i--){ const d=new Date(); d.setDate(d.getDate()-i); dias.push(d.toISOString().slice(0,10)); }
+  for(let i=6;i>=0;i--){ const d=new Date(); d.setDate(d.getDate()-i); dias.push(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`); }
   const labels = dias.map((d,i)=>i===6?'HOJE':DIAS[new Date(d+'T12:00:00').getDay()].slice(0,3).toUpperCase());
   const totais = dias.map(d=>{ let t=0; state.funcionarios.forEach(f=>t+=calcHorasDia(f.id,d)); return t; });
   const max = Math.max(...totais, 60);
@@ -1423,7 +1427,7 @@ function renderRelatorioAtrasos() {
     const pct = (atrasos/maxAtrasos)*100;
     return `<div>
       <div class="flex items-center justify-between mb-1">
-        <span class="text-sm font-semibold text-slate-700">${func.nome}</span>
+        <span class="text-sm font-semibold text-slate-700">${escapeHtml(func.nome)}</span>
         <span class="text-xs font-bold text-slate-500">${atrasos} dia${atrasos!==1?'s':''}</span>
       </div>
       <div class="h-8 bg-slate-100 rounded-lg overflow-hidden">
