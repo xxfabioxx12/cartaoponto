@@ -691,7 +691,7 @@
         <div><label class="block text-sm font-semibold mb-1.5 text-slate-700">Cargo</label><input id="func-cargo" class="w-full rounded-lg border-slate-200 text-sm p-3" placeholder="Ex: Vendedor" type="text"/></div>
         <div><label class="block text-sm font-semibold mb-1.5 text-slate-700">Turno *</label><select id="func-turno" class="w-full rounded-lg border-slate-200 text-sm p-3"><option value="">Selecione...</option></select></div>
       </div>
-      <div><label class="block text-sm font-semibold mb-1.5 text-slate-700">Carga Horária Diária (horas)</label><input id="func-carga" type="number" value="8" min="1" max="24" class="w-full rounded-lg border-slate-200 text-sm p-3"/></div>
+      <div><label class="block text-sm font-semibold mb-1.5 text-slate-700">Carga Horária Diária <span class="text-xs text-slate-400 font-normal">(calculada pelo turno)</span></label><input id="func-carga" type="text" value="—" readonly class="w-full rounded-lg border-slate-200 text-sm p-3 bg-slate-50 text-slate-500 cursor-not-allowed"/></div>
     </div>
     <div class="px-6 py-4 bg-slate-50 flex justify-end gap-3">
       <button onclick="closeModalFunc()" class="px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100 rounded-lg">Cancelar</button>
@@ -984,6 +984,11 @@ function minToHHMMSigned(min) {
 }
 function getTurno(nome) { return state.turnos.find(t=>t.nome===nome); }
 function getFuncTurno(f) { return getTurno(f.turno); }
+function calcCargaTurno(func) {
+  const t = getFuncTurno(func);
+  if (!t) return (func.carga || 8) * 60;
+  return diffMin(t.entrada, t.saida_int) + diffMin(t.volta_int, t.saida);
+}
 // ============================================================
 // CÁLCULO DE HORAS
 // ============================================================
@@ -1004,7 +1009,7 @@ function calcHorasExtra(funcId, data) {
   const func = state.funcionarios.find(f=>f.id===funcId);
   if (!func) return 0;
   const trabalhado = calcHorasDia(funcId, data);
-  const esperado = (func.carga || 8) * 60;
+  const esperado = calcCargaTurno(func);
   const regs = state.registros.filter(r=>r.funcId===funcId && r.data===data);
   const saida = regs.find(r=>r.tipo==='saida');
   if (!saida) return 0;
@@ -1187,7 +1192,7 @@ function renderFuncionarios() {
     const t = getFuncTurno(f);
     const horario = t ? `${t.entrada}–${t.saida}` : '—';
     return `<tr class="hover:bg-slate-50 transition-colors group">
-      <td class="px-6 py-4"><div class="flex items-center gap-3"><div class="h-10 w-10 rounded-full ${f.cor} flex items-center justify-center font-bold text-sm">${iniciais(f.nome)}</div><div><p class="font-semibold">${escapeHtml(f.nome)}</p><p class="text-xs text-slate-500">ID: ${f.id} · ${f.carga||8}h/dia</p></div></div></td>
+      <td class="px-6 py-4"><div class="flex items-center gap-3"><div class="h-10 w-10 rounded-full ${f.cor} flex items-center justify-center font-bold text-sm">${iniciais(f.nome)}</div><div><p class="font-semibold">${escapeHtml(f.nome)}</p><p class="text-xs text-slate-500">ID: ${f.id} · ${minToHHMM(calcCargaTurno(f))}/dia</p></div></div></td>
       <td class="px-6 py-4 text-sm text-slate-600">${escapeHtml(f.cargo)}</td>
       <td class="px-6 py-4"><span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600">${escapeHtml(f.turno)}</span><p class="text-xs text-slate-400 mt-1">${horario}</p></td>
       <td class="px-6 py-4"><span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${s.cor}">${s.status}</span></td>
@@ -1204,10 +1209,11 @@ function openModalFunc() {
   document.getElementById('func-edit-id').value = '';
   document.getElementById('func-nome').value = '';
   document.getElementById('func-cargo').value = '';
-  document.getElementById('func-carga').value = 8;
+  document.getElementById('func-carga').value = '—';
   const sel = document.getElementById('func-turno');
   sel.innerHTML = '<option value="">Selecione...</option>';
   state.turnos.forEach(t=>sel.innerHTML+=`<option value="${t.nome}">${t.nome} (${t.entrada}–${t.saida})</option>`);
+  sel.onchange = () => { const t = getTurno(sel.value); document.getElementById('func-carga').value = t ? minToHHMM(diffMin(t.entrada, t.saida_int) + diffMin(t.volta_int, t.saida)) : '—'; };
   document.getElementById('modal-func').classList.add('open');
 }
 function closeModalFunc() { document.getElementById('modal-func').classList.remove('open'); }
@@ -1215,16 +1221,15 @@ function salvarFuncionario() {
   const nome = document.getElementById('func-nome').value.trim();
   const cargo = document.getElementById('func-cargo').value.trim();
   const turno = document.getElementById('func-turno').value;
-  const carga = parseInt(document.getElementById('func-carga').value) || 8;
   if (!nome) { showToast('Atenção!', 'Nome é obrigatório.', 'bg-yellow-500', 'warning'); return; }
   const editId = parseInt(document.getElementById('func-edit-id').value);
   const cores = ['bg-primary/20 text-primary','bg-indigo-100 text-indigo-600','bg-amber-100 text-amber-600','bg-emerald-100 text-emerald-600','bg-rose-100 text-rose-600','bg-purple-100 text-purple-600'];
   if (editId) {
     const f = state.funcionarios.find(f=>f.id===editId);
-    if (f) { f.nome=nome; f.cargo=cargo; f.turno=turno; f.carga=carga; }
+    if (f) { f.nome=nome; f.cargo=cargo; f.turno=turno; }
     addHistorico('cadastro', editId, `Funcionário editado: ${nome}`);
   } else {
-    const newF = { id:state.nextFuncId++, nome, cargo, turno, carga, cor:cores[state.funcionarios.length%cores.length] };
+    const newF = { id:state.nextFuncId++, nome, cargo, turno, cor:cores[state.funcionarios.length%cores.length] };
     state.funcionarios.push(newF);
     addHistorico('cadastro', newF.id, `Funcionário cadastrado: ${nome}`);
   }
@@ -1238,10 +1243,11 @@ function editarFuncionario(id) {
   document.getElementById('func-edit-id').value = f.id;
   document.getElementById('func-nome').value = f.nome;
   document.getElementById('func-cargo').value = f.cargo;
-  document.getElementById('func-carga').value = f.carga||8;
   const sel = document.getElementById('func-turno');
   sel.innerHTML = '<option value="">Selecione...</option>';
   state.turnos.forEach(t=>sel.innerHTML+=`<option value="${t.nome}" ${t.nome===f.turno?'selected':''}>${t.nome} (${t.entrada}–${t.saida})</option>`);
+  sel.onchange = () => { const t = getTurno(sel.value); document.getElementById('func-carga').value = t ? minToHHMM(diffMin(t.entrada, t.saida_int) + diffMin(t.volta_int, t.saida)) : '—'; };
+  document.getElementById('func-carga').value = minToHHMM(calcCargaTurno(f));
   document.getElementById('modal-func').classList.add('open');
 }
 function excluirFuncionario(id) {
@@ -1318,7 +1324,7 @@ function renderRelatorio() {
   document.getElementById('rel-chart').innerHTML = funcsFiltradas.map(f=>{
     const totalF = rows.filter(d=>d.funcId===f.id).reduce((acc,d)=>acc+calcHorasDia(f.id,d.data),0);
     const pct = Math.round(totalF/maxHorasFunc*100);
-    const esperado = rows.filter(d=>d.funcId===f.id && d.regs.find(r=>r.tipo==='saida')).length * (f.carga||8) * 60;
+    const esperado = rows.filter(d=>d.funcId===f.id && d.regs.find(r=>r.tipo==='saida')).length * calcCargaTurno(f);
     const extra = totalF - esperado;
     return `<div class="flex items-center gap-4">
       <div class="w-32 text-sm font-semibold text-slate-700 truncate">${escapeHtml(f.nome)}</div>
@@ -1396,7 +1402,7 @@ function renderBancoHoras() {
     return `<div class="px-6 py-5 flex items-center justify-between hover:bg-slate-50 transition-colors">
       <div class="flex items-center gap-4">
         <div class="h-11 w-11 rounded-full ${func.cor} flex items-center justify-center font-bold">${iniciais(func.nome)}</div>
-        <div><p class="font-semibold">${escapeHtml(func.nome)}</p><p class="text-xs text-slate-500">${escapeHtml(func.cargo)} · ${func.carga||8}h/dia</p></div>
+        <div><p class="font-semibold">${escapeHtml(func.nome)}</p><p class="text-xs text-slate-500">${escapeHtml(func.cargo)} · ${minToHHMM(calcCargaTurno(func))}/dia</p></div>
       </div>
       <div class="text-right">
         <p class="text-xl font-black ${saldo>0?'text-green-600':saldo<0?'text-red-600':'text-slate-600'}">${minToHHMMSigned(saldo)}</p>
