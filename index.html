@@ -854,12 +854,49 @@ async function loadFromCloud() {
     if (!error && data && data.data) {
       const cloudState = data.data;
       const localSessao = state.sessao;
-      state = { ...cloudState, sessao: localSessao };
+
+      // Smart merge: preservar registros locais que ainda não foram sincronizados
+      const localRegs = state.registros || [];
+      const cloudRegs = cloudState.registros || [];
+      const cloudRegKeys = new Set(cloudRegs.map(r => `${r.funcId}|${r.tipo}|${r.data}`));
+      const mergedRegs = [...cloudRegs];
+      let hasLocalOnly = false;
+      for (const lr of localRegs) {
+        if (!cloudRegKeys.has(`${lr.funcId}|${lr.tipo}|${lr.data}`)) {
+          mergedRegs.push(lr);
+          hasLocalOnly = true;
+        }
+      }
+
+      // Smart merge: preservar histórico local não sincronizado
+      const localHist = state.historico || [];
+      const cloudHist = cloudState.historico || [];
+      const cloudHistIds = new Set(cloudHist.map(h => h.id).filter(Boolean));
+      const mergedHist = [...cloudHist];
+      for (const lh of localHist) {
+        if (lh.id && !cloudHistIds.has(lh.id)) {
+          mergedHist.push(lh);
+          hasLocalOnly = true;
+        }
+      }
+      mergedHist.sort((a, b) => (b.id || 0) - (a.id || 0));
+      if (mergedHist.length > 200) mergedHist.length = 200;
+
+      state = { ...cloudState, sessao: localSessao, registros: mergedRegs, historico: mergedHist };
       if (!state.config) state.config = { senhaAdmin: btoa('admin123') };
       if (!state.sessao) state.sessao = { tipo: null, funcId: null };
       if (!state.nextFuncId) state.nextFuncId = Math.max(0, ...state.funcionarios.map(f=>f.id)) + 1;
       if (!state.nextTurnoId) state.nextTurnoId = Math.max(0, ...state.turnos.map(t=>t.id)) + 1;
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+
+      // Se havia dados locais não sincronizados, enviar estado mergeado para a nuvem
+      if (hasLocalOnly) {
+        supabase.from('app_state').upsert({
+          id: 1,
+          data: state,
+          updated_at: new Date().toISOString()
+        }).then(() => {}).catch(() => {});
+      }
     }
   } catch(e) {}
 }
@@ -1970,6 +2007,10 @@ renderDashboard();
   if (supabase) {
     renderTelaPublica();
     renderDashboard();
+    // Re-renderizar tela do funcionário se sessão ativa (após merge com nuvem)
+    if (state.sessao && state.sessao.tipo === 'funcionario' && state.sessao.funcId) {
+      renderHistoricoHojeFunc(state.sessao.funcId);
+    }
   }
 })();
 </script>
