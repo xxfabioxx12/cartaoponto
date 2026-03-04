@@ -499,7 +499,7 @@
         <div class="overflow-x-auto">
           <table class="w-full text-left">
             <thead class="bg-slate-50 text-slate-500 text-xs font-bold uppercase tracking-wider">
-              <tr><th class="px-5 py-3">Funcionário</th><th class="px-5 py-3">Data</th><th class="px-5 py-3">Entrada</th><th class="px-5 py-3">S. Int.</th><th class="px-5 py-3">V. Int.</th><th class="px-5 py-3">Saída</th><th class="px-5 py-3">Horas</th><th class="px-5 py-3">H. Extra</th><th class="px-5 py-3">Status</th></tr>
+              <tr><th class="px-5 py-3">Funcionário</th><th class="px-5 py-3">Data</th><th class="px-5 py-3">Entrada</th><th class="px-5 py-3">S. Int.</th><th class="px-5 py-3">V. Int.</th><th class="px-5 py-3">Saída</th><th class="px-5 py-3">Horas</th><th class="px-5 py-3">H. Extra</th><th class="px-5 py-3">Status</th><th class="px-5 py-3 w-10"></th></tr>
             </thead>
             <tbody id="rel-table" class="divide-y divide-slate-100"></tbody>
           </table>
@@ -696,6 +696,32 @@
     <div class="px-6 py-4 bg-slate-50 flex justify-end gap-3">
       <button onclick="closeModalFunc()" class="px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100 rounded-lg">Cancelar</button>
       <button onclick="salvarFuncionario()" class="px-6 py-2 text-sm font-bold text-white bg-primary hover:bg-primary/90 rounded-lg shadow-md">Salvar</button>
+    </div>
+  </div>
+</div>
+<!-- ===== MODAL EDITAR PONTO ===== -->
+<div id="modal-edit-ponto" class="modal-overlay fixed inset-0 z-50 items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+  <div class="w-full max-w-md bg-white rounded-xl shadow-2xl overflow-hidden">
+    <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+      <h3 class="text-lg font-bold">Editar Ponto</h3>
+      <button onclick="closeEditPonto()" class="text-slate-400 hover:text-slate-600"><span class="material-symbols-outlined">close</span></button>
+    </div>
+    <div class="p-6 space-y-4">
+      <input type="hidden" id="edit-ponto-funcId"/>
+      <input type="hidden" id="edit-ponto-data"/>
+      <div class="bg-slate-50 rounded-lg p-3 mb-2">
+        <p class="text-sm font-bold text-slate-700" id="edit-ponto-info"></p>
+      </div>
+      <div class="grid grid-cols-2 gap-4">
+        <div><label class="block text-sm font-semibold mb-1.5 text-slate-700">Entrada</label><input id="edit-ponto-entrada" type="time" class="w-full rounded-lg border-slate-200 text-sm p-3"/></div>
+        <div><label class="block text-sm font-semibold mb-1.5 text-slate-700">Saída Intervalo</label><input id="edit-ponto-si" type="time" class="w-full rounded-lg border-slate-200 text-sm p-3"/></div>
+        <div><label class="block text-sm font-semibold mb-1.5 text-slate-700">Volta Intervalo</label><input id="edit-ponto-vi" type="time" class="w-full rounded-lg border-slate-200 text-sm p-3"/></div>
+        <div><label class="block text-sm font-semibold mb-1.5 text-slate-700">Saída</label><input id="edit-ponto-saida" type="time" class="w-full rounded-lg border-slate-200 text-sm p-3"/></div>
+      </div>
+    </div>
+    <div class="px-6 py-4 bg-slate-50 flex justify-end gap-3">
+      <button onclick="closeEditPonto()" class="px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100 rounded-lg">Cancelar</button>
+      <button onclick="salvarEditPonto()" class="px-6 py-2 text-sm font-bold text-white bg-primary hover:bg-primary/90 rounded-lg shadow-md">Salvar</button>
     </div>
   </div>
 </div>
@@ -1338,7 +1364,7 @@ function renderRelatorio() {
   }).join('');
   // Tabela
   if (!rows.length) {
-    document.getElementById('rel-table').innerHTML = '<tr><td colspan="9" class="px-6 py-12 text-center text-slate-400">Nenhum registro no período</td></tr>'; return;
+    document.getElementById('rel-table').innerHTML = '<tr><td colspan="10" class="px-6 py-12 text-center text-slate-400">Nenhum registro no período</td></tr>'; return;
   }
   document.getElementById('rel-table').innerHTML = rows.map(d=>{
     const func = state.funcionarios.find(f=>f.id===d.funcId);
@@ -1362,6 +1388,7 @@ function renderRelatorio() {
       <td class="px-5 py-3 text-sm font-bold">${mins?minToHHMM(mins):'—'}</td>
       <td class="px-5 py-3"><span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${extraClass||'bg-slate-100 text-slate-500'}">${extra!==0?minToHHMMSigned(extra):'—'}</span></td>
       <td class="px-5 py-3"><span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${statusColor}">${statusLabel}</span></td>
+      <td class="px-5 py-3"><button onclick="openEditPonto('${d.funcId}','${d.data}')" class="text-slate-400 hover:text-primary transition-colors" title="Editar ponto"><span class="material-symbols-outlined text-xl">edit</span></button></td>
     </tr>`;
   }).join('');
 }
@@ -1993,6 +2020,52 @@ function renderHistoricoHojeFunc(funcId) {
   totalEl.textContent = `Total: ${minToHHMM(calcHorasDia(funcId, todayStr()))}`;
 }
 
+// ============================================================
+// EDITAR PONTO
+// ============================================================
+function openEditPonto(funcId, data) {
+  const func = state.funcionarios.find(f => String(f.id) === String(funcId));
+  if (!func) return;
+  const regs = state.registros.filter(r => String(r.funcId) === String(funcId) && r.data === data);
+  document.getElementById('edit-ponto-funcId').value = funcId;
+  document.getElementById('edit-ponto-data').value = data;
+  document.getElementById('edit-ponto-info').textContent = `${func.nome} — ${formatDate(data)}`;
+  const entrada = regs.find(r => r.tipo === 'entrada');
+  const si = regs.find(r => r.tipo === 'saida_intervalo');
+  const vi = regs.find(r => r.tipo === 'volta_intervalo');
+  const saida = regs.find(r => r.tipo === 'saida');
+  document.getElementById('edit-ponto-entrada').value = entrada ? entrada.hora : '';
+  document.getElementById('edit-ponto-si').value = si ? si.hora : '';
+  document.getElementById('edit-ponto-vi').value = vi ? vi.hora : '';
+  document.getElementById('edit-ponto-saida').value = saida ? saida.hora : '';
+  document.getElementById('modal-edit-ponto').classList.add('open');
+}
+function closeEditPonto() { document.getElementById('modal-edit-ponto').classList.remove('open'); }
+function salvarEditPonto() {
+  const funcId = document.getElementById('edit-ponto-funcId').value;
+  const data = document.getElementById('edit-ponto-data').value;
+  const campos = {
+    entrada: document.getElementById('edit-ponto-entrada').value,
+    saida_intervalo: document.getElementById('edit-ponto-si').value,
+    volta_intervalo: document.getElementById('edit-ponto-vi').value,
+    saida: document.getElementById('edit-ponto-saida').value,
+  };
+  // Remove registros antigos desse dia/funcionário
+  state.registros = state.registros.filter(r => !(String(r.funcId) === String(funcId) && r.data === data));
+  // Adiciona os novos (só os preenchidos)
+  const tipos = ['entrada','saida_intervalo','volta_intervalo','saida'];
+  tipos.forEach(tipo => {
+    if (campos[tipo]) {
+      state.registros.push({ funcId, tipo, hora: campos[tipo], data });
+    }
+  });
+  const func = state.funcionarios.find(f => String(f.id) === String(funcId));
+  addHistorico('ponto', funcId, `Ponto editado manualmente em ${formatDate(data)}`);
+  saveState();
+  closeEditPonto();
+  renderRelatorio();
+  showToast('Ponto Atualizado!', `Horários de ${func?.nome || ''} em ${formatDate(data)} foram ajustados.`);
+}
 // ============================================================
 // INIT
 // ============================================================
