@@ -921,7 +921,7 @@ async function loadFromCloud() {
           id: 1,
           data: state,
           updated_at: new Date().toISOString()
-        }).then(() => {}).catch(() => {});
+        }).then(() => { _syncPending = false; }).catch(() => { _syncPending = true; });
       }
     }
   } catch(e) {}
@@ -938,17 +938,34 @@ function loadState() {
 async function saveState() {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    // Tentar salvar no Supabase se disponível
     if (supabase) {
-      await supabase.from('app_state').upsert({
+      const { error } = await supabase.from('app_state').upsert({
         id: 1,
         data: state,
         updated_at: new Date().toISOString()
       });
+      if (error) {
+        console.warn('Erro Supabase (saveState):', error);
+        _syncPending = true;
+      } else {
+        _syncPending = false;
+      }
     }
   } catch(e) {
     console.warn('Erro ao salvar estado:', e);
+    _syncPending = true;
   }
+}
+async function retrySyncToCloud() {
+  if (!_syncPending || !supabase) return;
+  try {
+    const { error } = await supabase.from('app_state').upsert({
+      id: 1,
+      data: state,
+      updated_at: new Date().toISOString()
+    });
+    if (!error) _syncPending = false;
+  } catch(e) {}
 }
 const defaultState = {
   funcionarios: [
@@ -974,6 +991,7 @@ if (!state.config) state.config = { senhaAdmin: btoa('admin123') };
 if (!state.sessao) state.sessao = { tipo: null, funcId: null };
 if (!state.nextFuncId) state.nextFuncId = Math.max(0, ...state.funcionarios.map(f=>f.id)) + 1;
 if (!state.nextTurnoId) state.nextTurnoId = Math.max(0, ...state.turnos.map(t=>t.id)) + 1;
+let _syncPending = false;
 // ============================================================
 // UTILITÁRIOS
 // ============================================================
@@ -1965,7 +1983,7 @@ async function tentarLoginAdmin() {
 // ============================================================
 // REGISTRO DE PONTO — TELA DO FUNCIONÁRIO
 // ============================================================
-function registrarPontoFunc(tipo) {
+async function registrarPontoFunc(tipo) {
   const funcId = state.sessao.funcId;
   if (!funcId) return;
   const func = state.funcionarios.find(f => f.id === funcId);
@@ -1991,7 +2009,7 @@ function registrarPontoFunc(tipo) {
   }
   state.registros.push({ funcId, tipo, hora, data });
   addHistorico('ponto', funcId, `${TIPOS[tipo].label} às ${hora}${alertaAtraso}`);
-  saveState();
+  await saveState();
   renderHistoricoHojeFunc(funcId);
   showToast('Ponto Registrado!', `${TIPOS[tipo].label} — ${hora} — ${func.nome}${alertaAtraso}`);
 }
@@ -2041,7 +2059,7 @@ function openEditPonto(funcId, data) {
   document.getElementById('modal-edit-ponto').classList.add('open');
 }
 function closeEditPonto() { document.getElementById('modal-edit-ponto').classList.remove('open'); }
-function salvarEditPonto() {
+async function salvarEditPonto() {
   const funcId = document.getElementById('edit-ponto-funcId').value;
   const data = document.getElementById('edit-ponto-data').value;
   const campos = {
@@ -2061,7 +2079,7 @@ function salvarEditPonto() {
   });
   const func = state.funcionarios.find(f => String(f.id) === String(funcId));
   addHistorico('ponto', funcId, `Ponto editado manualmente em ${formatDate(data)}`);
-  saveState();
+  await saveState();
   closeEditPonto();
   renderRelatorio();
   showToast('Ponto Atualizado!', `Horários de ${func?.nome || ''} em ${formatDate(data)} foram ajustados.`);
@@ -2079,6 +2097,10 @@ if (state.sessao && state.sessao.tipo === 'admin') {
   iniciarSessaoAdmin();
 }
 renderDashboard();
+// Retry automático: a cada 30s tenta sincronizar registros pendentes
+setInterval(retrySyncToCloud, 30000);
+window.addEventListener('online', retrySyncToCloud);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) retrySyncToCloud(); });
 // Conectar ao Supabase e sincronizar dados da nuvem em background
 (async () => {
   await initSupabase();
