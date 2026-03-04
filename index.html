@@ -884,11 +884,11 @@ async function loadFromCloud() {
       // Smart merge: preservar registros locais que ainda não foram sincronizados
       const localRegs = state.registros || [];
       const cloudRegs = cloudState.registros || [];
-      const cloudRegKeys = new Set(cloudRegs.map(r => `${r.funcId}|${r.tipo}|${r.data}`));
+      const cloudRegKeys = new Set(cloudRegs.map(r => `${String(r.funcId)}|${r.tipo}|${r.data}`));
       const mergedRegs = [...cloudRegs];
       let hasLocalOnly = false;
       for (const lr of localRegs) {
-        if (!cloudRegKeys.has(`${lr.funcId}|${lr.tipo}|${lr.data}`)) {
+        if (!cloudRegKeys.has(`${String(lr.funcId)}|${lr.tipo}|${lr.data}`)) {
           mergedRegs.push(lr);
           hasLocalOnly = true;
         }
@@ -922,6 +922,10 @@ async function loadFromCloud() {
           data: state,
           updated_at: new Date().toISOString()
         }).then(() => { _syncPending = false; }).catch(() => { _syncPending = true; });
+      }
+      // Se havia funcionária com sessão ativa, atualiza o histórico dela na tela
+      if (localSessao && localSessao.tipo === 'funcionario' && localSessao.funcId) {
+        renderHistoricoHojeFunc(localSessao.funcId);
       }
     }
   } catch(e) {}
@@ -1986,10 +1990,10 @@ async function tentarLoginAdmin() {
 async function registrarPontoFunc(tipo) {
   const funcId = state.sessao.funcId;
   if (!funcId) return;
-  const func = state.funcionarios.find(f => f.id === funcId);
+  const func = state.funcionarios.find(f => String(f.id) === String(funcId));
   const hora = nowStr();
   const data = todayStr();
-  const regsHoje = state.registros.filter(r => r.funcId === funcId && r.data === data);
+  const regsHoje = state.registros.filter(r => String(r.funcId) === String(funcId) && r.data === data);
   const ordem = ['entrada','saida_intervalo','volta_intervalo','saida'];
   const jaTemTipo = regsHoje.find(r => r.tipo === tipo);
   if (jaTemTipo) {
