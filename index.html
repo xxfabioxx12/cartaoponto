@@ -913,6 +913,8 @@ async function loadFromCloud() {
       if (!state.sessao) state.sessao = { tipo: null, funcId: null };
       if (!state.nextFuncId) state.nextFuncId = Math.max(0, ...state.funcionarios.map(f=>f.id)) + 1;
       if (!state.nextTurnoId) state.nextTurnoId = Math.max(0, ...state.turnos.map(t=>t.id)) + 1;
+      // Migração: normaliza funcId de string para number em registros da nuvem
+      state.registros.forEach(r => { if (typeof r.funcId === 'string') r.funcId = Number(r.funcId); });
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 
       // Se havia dados locais não sincronizados, enviar estado mergeado para a nuvem
@@ -995,6 +997,8 @@ if (!state.config) state.config = { senhaAdmin: btoa('admin123') };
 if (!state.sessao) state.sessao = { tipo: null, funcId: null };
 if (!state.nextFuncId) state.nextFuncId = Math.max(0, ...state.funcionarios.map(f=>f.id)) + 1;
 if (!state.nextTurnoId) state.nextTurnoId = Math.max(0, ...state.turnos.map(t=>t.id)) + 1;
+// Migração: normaliza funcId de string para number em registros existentes
+state.registros.forEach(r => { if (typeof r.funcId === 'string') r.funcId = Number(r.funcId); });
 let _syncPending = false;
 // ============================================================
 // UTILITÁRIOS
@@ -1041,7 +1045,7 @@ function calcCargaTurno(func) {
 // CÁLCULO DE HORAS
 // ============================================================
 function calcHorasDia(funcId, data) {
-  const regs = state.registros.filter(r=>r.funcId===funcId && r.data===data);
+  const regs = state.registros.filter(r=>String(r.funcId)===String(funcId) && r.data===data);
   const entrada = regs.find(r=>r.tipo==='entrada');
   const saida = regs.find(r=>r.tipo==='saida');
   const si = regs.find(r=>r.tipo==='saida_intervalo');
@@ -1054,11 +1058,11 @@ function calcHorasDia(funcId, data) {
   return Math.max(0, total);
 }
 function calcHorasExtra(funcId, data) {
-  const func = state.funcionarios.find(f=>f.id===funcId);
+  const func = state.funcionarios.find(f=>String(f.id)===String(funcId));
   if (!func) return 0;
   const trabalhado = calcHorasDia(funcId, data);
   const esperado = calcCargaTurno(func);
-  const regs = state.registros.filter(r=>r.funcId===funcId && r.data===data);
+  const regs = state.registros.filter(r=>String(r.funcId)===String(funcId) && r.data===data);
   const saida = regs.find(r=>r.tipo==='saida');
   if (!saida) return 0;
   return trabalhado - esperado;
@@ -1076,7 +1080,7 @@ function calcAtrasoEntrada(funcId, data) {
   return Math.max(0, atrasoMin - tolerancia);
 }
 function getStatusHoje(funcId) {
-  const regs = state.registros.filter(r=>r.funcId===funcId && r.data===todayStr());
+  const regs = state.registros.filter(r=>String(r.funcId)===String(funcId) && r.data===todayStr());
   if (!regs.length) return { status:'Ausente', cor:'bg-slate-100 text-slate-700', ultima:'—', entrada:'—' };
   const ultimo = regs[regs.length-1];
   const entrada = regs.find(r=>r.tipo==='entrada');
@@ -1366,13 +1370,13 @@ function renderRelatorio() {
   // Gráfico por funcionário
   const funcsFiltradas = funcFiltro==='todos' ? state.funcionarios : state.funcionarios.filter(f=>String(f.id)===funcFiltro);
   const maxHorasFunc = Math.max(...funcsFiltradas.map(f=>{
-    const total = rows.filter(d=>d.funcId===f.id).reduce((acc,d)=>acc+calcHorasDia(f.id,d.data),0);
+    const total = rows.filter(d=>String(d.funcId)===String(f.id)).reduce((acc,d)=>acc+calcHorasDia(f.id,d.data),0);
     return total;
   }), 1);
   document.getElementById('rel-chart').innerHTML = funcsFiltradas.map(f=>{
-    const totalF = rows.filter(d=>d.funcId===f.id).reduce((acc,d)=>acc+calcHorasDia(f.id,d.data),0);
+    const totalF = rows.filter(d=>String(d.funcId)===String(f.id)).reduce((acc,d)=>acc+calcHorasDia(f.id,d.data),0);
     const pct = Math.round(totalF/maxHorasFunc*100);
-    const esperado = rows.filter(d=>d.funcId===f.id && d.regs.find(r=>r.tipo==='saida')).length * calcCargaTurno(f);
+    const esperado = rows.filter(d=>String(d.funcId)===String(f.id) && d.regs.find(r=>r.tipo==='saida')).length * calcCargaTurno(f);
     const extra = totalF - esperado;
     return `<div class="flex items-center gap-4">
       <div class="w-32 text-sm font-semibold text-slate-700 truncate">${escapeHtml(f.nome)}</div>
@@ -1389,7 +1393,7 @@ function renderRelatorio() {
     document.getElementById('rel-table').innerHTML = '<tr><td colspan="10" class="px-6 py-12 text-center text-slate-400">Nenhum registro no período</td></tr>'; return;
   }
   document.getElementById('rel-table').innerHTML = rows.map(d=>{
-    const func = state.funcionarios.find(f=>f.id===d.funcId);
+    const func = state.funcionarios.find(f=>String(f.id)===String(d.funcId));
     const entrada = d.regs.find(r=>r.tipo==='entrada');
     const si = d.regs.find(r=>r.tipo==='saida_intervalo');
     const vi = d.regs.find(r=>r.tipo==='volta_intervalo');
@@ -1529,7 +1533,7 @@ function renderRelatorioAtrasos() {
   }).join(''):'<p class="text-center text-slate-400 py-8">Nenhum atraso registrado neste mês</p>';
   diasAtrasados.sort((a,b)=>a.data.localeCompare(b.data));
   document.getElementById('atrasos-table').innerHTML = diasAtrasados.length>0?diasAtrasados.map(({funcId,data,entrada,atraso})=>{
-    const func = state.funcionarios.find(f=>f.id===funcId);
+    const func = state.funcionarios.find(f=>String(f.id)===String(funcId));
     const turno = state.turnos.find(t=>t.nome===func.turno);
     const horarioEsperado = turno?turno.entrada:'—';
     return `<tr class="hover:bg-slate-50 transition-colors">
@@ -1545,7 +1549,7 @@ function renderRelatorioAtrasos() {
 // HISTÓRICO DE ALTERAÇÕES
 // ============================================================
 function addHistorico(tipo, funcId, detalhe) {
-  const func = funcId ? state.funcionarios.find(f => f.id === funcId) : null;
+  const func = funcId ? state.funcionarios.find(f => String(f.id) === String(funcId)) : null;
   state.historico.unshift({ dataHora:nowFull(), tipo, funcNome: func?.nome || 'Sistema', detalhe, id:Date.now() });
   if (state.historico.length > 200) state.historico = state.historico.slice(0,200);
 }
@@ -1648,10 +1652,10 @@ function renderTurnos() {
         <div class="text-center"><p class="text-[10px] text-slate-400 uppercase font-bold">V. Intervalo</p><p class="text-sm font-bold text-slate-700">${t.volta_int||'—'}</p></div>
         <div class="text-center"><p class="text-[10px] text-slate-400 uppercase font-bold">Saída</p><p class="text-sm font-bold text-slate-700">${t.saida}</p></div>
       </div>
-      <div class="mt-3 text-xs text-slate-500 font-medium">Carga: ${calcCargaTurno(t)}/dia</div>
+      <div class="mt-3 text-xs text-slate-500 font-medium">Carga: ${calcCargaTurnoLabel(t)}/dia</div>
     </div>`).join('');
 }
-function calcCargaTurno(t) {
+function calcCargaTurnoLabel(t) {
   let mins = diffMin(t.entrada, t.saida);
   if (t.saida_int && t.volta_int) mins -= diffMin(t.saida_int, t.volta_int);
   return minToHHMM(Math.max(0, mins));
@@ -1713,7 +1717,7 @@ function exportarCSV() {
   const header=['Funcionário','Data','Entrada','Saída Intervalo','Volta Intervalo','Saída','Horas Trabalhadas','Horas Extras','Status'];
   const lines=[header.join(';')];
   rows.forEach(d=>{
-    const func=state.funcionarios.find(f=>f.id===d.funcId);
+    const func=state.funcionarios.find(f=>String(f.id)===String(d.funcId));
     const entrada=d.regs.find(r=>r.tipo==='entrada');
     const si=d.regs.find(r=>r.tipo==='saida_intervalo');
     const vi=d.regs.find(r=>r.tipo==='volta_intervalo');
@@ -1765,7 +1769,7 @@ function exportarPDF() {
     doc.setTextColor(0,0,0); doc.setFont('helvetica','normal');
     rows.forEach((d,idx)=>{
       if(y>185){ doc.addPage(); y=20; }
-      const func=state.funcionarios.find(f=>f.id===d.funcId);
+      const func=state.funcionarios.find(f=>String(f.id)===String(d.funcId));
       const entrada=d.regs.find(r=>r.tipo==='entrada');
       const si=d.regs.find(r=>r.tipo==='saida_intervalo');
       const vi=d.regs.find(r=>r.tipo==='volta_intervalo');
@@ -2021,7 +2025,7 @@ async function registrarPontoFunc(tipo) {
 function renderHistoricoHojeFunc(funcId) {
   const container = document.getElementById('func-historico-hoje');
   const totalEl = document.getElementById('func-total-hoje');
-  const regs = state.registros.filter(r => r.funcId === funcId && r.data === todayStr());
+  const regs = state.registros.filter(r => String(r.funcId) === String(funcId) && r.data === todayStr());
   if (!regs.length) {
     container.innerHTML = '<p class="px-6 py-8 text-center text-slate-400 text-sm">Nenhum registro hoje</p>';
     totalEl.textContent = 'Total: 00h 00m';
@@ -2064,7 +2068,7 @@ function openEditPonto(funcId, data) {
 }
 function closeEditPonto() { document.getElementById('modal-edit-ponto').classList.remove('open'); }
 async function salvarEditPonto() {
-  const funcId = document.getElementById('edit-ponto-funcId').value;
+  const funcId = Number(document.getElementById('edit-ponto-funcId').value);
   const data = document.getElementById('edit-ponto-data').value;
   const campos = {
     entrada: document.getElementById('edit-ponto-entrada').value,
