@@ -8,10 +8,7 @@
     "build": "echo 'No build step needed for this static site'",
     "start": "python -m http.server 8080"
   },
-  "dependencies": {
-    "@supabase/supabase-js": "^2.38.0",
-    "jspdf": "^2.5.1"
-  },
+  "dependencies": {},
   "devDependencies": {},
   "keywords": ["ponto", "cartão", "celulares", "fs"],
   "author": "FS Celulares",

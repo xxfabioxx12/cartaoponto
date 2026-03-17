@@ -25,3 +25,6 @@ build/
 # Temporary files
 *.tmp
 .cache/
+
+# Ferramentas de setup (credenciais sensíveis)
+create-tables.html

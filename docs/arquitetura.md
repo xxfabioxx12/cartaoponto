@@ -127,11 +127,26 @@ Página carrega
 ### XSS
 - Função `escapeHtml(str)` aplicada em todas as renderizações de dados dinâmicos
 - Sanitiza `&`, `<`, `>`, `"`, `'`
+- Selects de turno/funcionário usam `document.createElement('option')` + `.textContent`
 
 ### Timeout de sessão
-- Sessão admin expira após 15 minutos de inatividade
-- `resetAdminTimer()` chamado em interações do usuário
+- Sessão admin expira após 30 minutos de inatividade via `resetAdminTimer()`
+- Ao reabrir o browser, sessão admin expira se `startedAt` > 30 min atrás
 - Redireciona para tela pública ao expirar
+
+### Proteção contra NaN
+- `timeToMin()` retorna 0 para strings inválidas (ex: `"—"`, `"abc"`)
+- `minToHHMM()` e `minToHHMMSigned()` protegidos contra NaN
+- `calcHorasDia()` retorna 0 para dias passados sem registro de saída
+
+### Merge de registros (cloud sync)
+- Key de deduplicação inclui `hora` além de `funcId|tipo|data`
+- Permite preservar edições locais de horário
+
+### Headers de segurança (Vercel)
+- `X-Content-Type-Options: nosniff`
+- `X-Frame-Options: DENY`
+- `Referrer-Policy: strict-origin-when-cross-origin`
 
 ## Dependências Externas (CDN)
 

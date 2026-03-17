@@ -13,7 +13,7 @@
 | `index.html` | Aplicação completa (HTML + CSS + JS) |
 | `api/config.js` | Serverless function — retorna credenciais Supabase via env vars |
 | `schema.sql` | DDL das 5 tabelas Supabase (com RLS) |
-| `create-tables.html` | Interface web para criar tabelas no Supabase |
+| ~~`create-tables.html`~~ | Removido (credenciais expostas) |
 | `vercel.json` | Configuração Vercel |
 | `package.json` | Metadados e scripts (`npm run dev` → python HTTP server) |
 | `.env.example` | Template de variáveis de ambiente |
@@ -100,3 +100,18 @@ Configuradas no Vercel (Settings → Environment Variables). O endpoint `api/con
 - IDs são incrementais (`nextFuncId`, `nextTurnoId`)
 - Todos os horários em formato `HH:MM` (string)
 - Datas em formato `YYYY-MM-DD` (string)
+
+## Problemas Conhecidos (baixa prioridade)
+
+Os itens abaixo foram identificados em auditoria mas não foram corrigidos por exigirem mudança arquitetural significativa:
+
+| Problema | Motivo de não corrigir agora |
+|----------|------------------------------|
+| Turno noturno (midnight crossing) | Requer redesenho de `diffMin()` |
+| Split do `index.html` em módulos | Refatoração grande, baixo risco |
+| Supabase Auth (autenticação server-side) | Mudança arquitetural |
+| SRI hashes nos CDNs | Depende de build step |
+| Acessibilidade (ARIA, keyboard nav) | Sprint dedicado |
+| RLS policies restritivas | Requer Supabase Auth primeiro |
+| Rate limiting server-side | Requer edge function |
+| PBKDF2/bcrypt para senha | Requer server-side |

@@ -793,8 +793,7 @@ async function hashSenha(senha) {
 }
 
 function isBase64Hash(h) {
-  // Base64 de senhas curtas tem ≤ 44 chars; SHA-256 hex tem 64 chars
-  return typeof h === 'string' && h.length < 60;
+  return typeof h === 'string' && !/^[0-9a-f]{64}$/.test(h);
 }
 
 // ============================================================
@@ -884,11 +883,11 @@ async function loadFromCloud() {
       // Smart merge: preservar registros locais que ainda não foram sincronizados
       const localRegs = state.registros || [];
       const cloudRegs = cloudState.registros || [];
-      const cloudRegKeys = new Set(cloudRegs.map(r => `${String(r.funcId)}|${r.tipo}|${r.data}`));
+      const cloudRegKeys = new Set(cloudRegs.map(r => `${String(r.funcId)}|${r.tipo}|${r.data}|${r.hora}`));
       const mergedRegs = [...cloudRegs];
       let hasLocalOnly = false;
       for (const lr of localRegs) {
-        if (!cloudRegKeys.has(`${String(lr.funcId)}|${lr.tipo}|${lr.data}`)) {
+        if (!cloudRegKeys.has(`${String(lr.funcId)}|${lr.tipo}|${lr.data}|${lr.hora}`)) {
           mergedRegs.push(lr);
           hasLocalOnly = true;
         }
@@ -909,7 +908,7 @@ async function loadFromCloud() {
       if (mergedHist.length > 200) mergedHist.length = 200;
 
       state = { ...cloudState, sessao: localSessao, registros: mergedRegs, historico: mergedHist };
-      if (!state.config) state.config = { senhaAdmin: btoa('admin123') };
+      if (!state.config) state.config = { senhaAdmin: '6f5afddd710c5802032188b2a68d151013cdeb89a7762d8dd6e40e3269a6054a' };
       if (!state.sessao) state.sessao = { tipo: null, funcId: null };
       if (!state.nextFuncId) state.nextFuncId = Math.max(0, ...state.funcionarios.map(f=>f.id)) + 1;
       if (!state.nextTurnoId) state.nextTurnoId = Math.max(0, ...state.turnos.map(t=>t.id)) + 1;
@@ -986,14 +985,14 @@ const defaultState = {
   ],
   registros: [],
   historico: [],
-  config: { senhaAdmin: btoa('admin123') },
+  config: { senhaAdmin: '6f5afddd710c5802032188b2a68d151013cdeb89a7762d8dd6e40e3269a6054a' },
   sessao: { tipo: null, funcId: null },
   nextFuncId: 4,
   nextTurnoId: 4,
 };
 let state = loadState() || JSON.parse(JSON.stringify(defaultState));
 // Migração: garante que dados antigos tenham os novos campos
-if (!state.config) state.config = { senhaAdmin: btoa('admin123') };
+if (!state.config) state.config = { senhaAdmin: '6f5afddd710c5802032188b2a68d151013cdeb89a7762d8dd6e40e3269a6054a' };
 if (!state.sessao) state.sessao = { tipo: null, funcId: null };
 if (!state.nextFuncId) state.nextFuncId = Math.max(0, ...state.funcionarios.map(f=>f.id)) + 1;
 if (!state.nextTurnoId) state.nextTurnoId = Math.max(0, ...state.turnos.map(t=>t.id)) + 1;
@@ -1022,15 +1021,17 @@ function iniciais(n) { return n.split(' ').map(p=>p[0]).join('').slice(0,2).toUp
 function timeToMin(t) {
   if (!t) return 0;
   const [h,m] = t.split(':').map(Number);
+  if (isNaN(h) || isNaN(m)) return 0;
   return h*60+m;
 }
 function diffMin(a,b) { return timeToMin(b) - timeToMin(a); }
 function minToHHMM(min) {
-  if (min <= 0) return '00h 00m';
+  if (!min || isNaN(min) || min <= 0) return '00h 00m';
   const h = Math.floor(min/60), m = min%60;
   return `${String(h).padStart(2,'0')}h ${String(m).padStart(2,'0')}m`;
 }
 function minToHHMMSigned(min) {
+  if (isNaN(min)) return '+00h 00m';
   const sign = min < 0 ? '-' : '+';
   return sign + minToHHMM(Math.abs(min));
 }
@@ -1051,9 +1052,11 @@ function calcHorasDia(funcId, data) {
   const si = regs.find(r=>r.tipo==='saida_intervalo');
   const vi = regs.find(r=>r.tipo==='volta_intervalo');
   if (!entrada) return 0;
+  if (!saida && data !== todayStr()) return 0;
   const ref = saida ? saida.hora : nowStr();
   let total = diffMin(entrada.hora, ref);
   if (si && vi) total -= diffMin(si.hora, vi.hora);
+  else if (si && !vi && saida) total -= diffMin(si.hora, saida.hora);
   else if (si && !vi && !saida) total -= diffMin(si.hora, nowStr());
   return Math.max(0, total);
 }
@@ -1101,7 +1104,8 @@ function updateClock() {
   const hh = String(n.getHours()).padStart(2,'0');
   const mm = String(n.getMinutes()).padStart(2,'0');
   const ss = String(n.getSeconds()).padStart(2,'0');
-  const dateStr = `${DIAS[n.getDay()]}, ${String(n.getDate()).padStart(2,'0')} de ${MESES[n.getMonth()]} de ${n.getFullYear()} · Brasília (GMT-3)`;
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Fuso local';
+  const dateStr = `${DIAS[n.getDay()]}, ${String(n.getDate()).padStart(2,'0')} de ${MESES[n.getMonth()]} de ${n.getFullYear()} · ${tz}`;
   // Tela pública
   const pH = document.getElementById('pub-clock-h');
   const pM = document.getElementById('pub-clock-m');
@@ -1264,12 +1268,12 @@ function openModalFunc() {
   document.getElementById('func-carga').value = '—';
   const sel = document.getElementById('func-turno');
   sel.innerHTML = '<option value="">Selecione...</option>';
-  state.turnos.forEach(t=>sel.innerHTML+=`<option value="${t.nome}">${t.nome} (${t.entrada}–${t.saida})</option>`);
+  state.turnos.forEach(t=>{const o=document.createElement('option');o.value=t.nome;o.textContent=`${t.nome} (${t.entrada}–${t.saida})`;sel.appendChild(o);});
   sel.onchange = () => { const t = getTurno(sel.value); document.getElementById('func-carga').value = t ? minToHHMM(diffMin(t.entrada, t.saida_int) + diffMin(t.volta_int, t.saida)) : '—'; };
   document.getElementById('modal-func').classList.add('open');
 }
 function closeModalFunc() { document.getElementById('modal-func').classList.remove('open'); }
-function salvarFuncionario() {
+async function salvarFuncionario() {
   const nome = document.getElementById('func-nome').value.trim();
   const cargo = document.getElementById('func-cargo').value.trim();
   const turno = document.getElementById('func-turno').value;
@@ -1285,7 +1289,7 @@ function salvarFuncionario() {
     state.funcionarios.push(newF);
     addHistorico('cadastro', newF.id, `Funcionário cadastrado: ${nome}`);
   }
-  saveState(); closeModalFunc(); renderFuncionarios();
+  await saveState(); closeModalFunc(); renderFuncionarios();
   showToast('Salvo!', `${nome} salvo com sucesso.`);
 }
 function editarFuncionario(id) {
@@ -1297,17 +1301,17 @@ function editarFuncionario(id) {
   document.getElementById('func-cargo').value = f.cargo;
   const sel = document.getElementById('func-turno');
   sel.innerHTML = '<option value="">Selecione...</option>';
-  state.turnos.forEach(t=>sel.innerHTML+=`<option value="${t.nome}" ${t.nome===f.turno?'selected':''}>${t.nome} (${t.entrada}–${t.saida})</option>`);
+  state.turnos.forEach(t=>{const o=document.createElement('option');o.value=t.nome;o.textContent=`${t.nome} (${t.entrada}–${t.saida})`;if(t.nome===f.turno)o.selected=true;sel.appendChild(o);});
   sel.onchange = () => { const t = getTurno(sel.value); document.getElementById('func-carga').value = t ? minToHHMM(diffMin(t.entrada, t.saida_int) + diffMin(t.volta_int, t.saida)) : '—'; };
   document.getElementById('func-carga').value = minToHHMM(calcCargaTurno(f));
   document.getElementById('modal-func').classList.add('open');
 }
 function excluirFuncionario(id) {
   const f = state.funcionarios.find(f=>f.id===id);
-  confirmDialog('Excluir Funcionário', `Deseja excluir "${f?.nome}"? Esta ação não pode ser desfeita.`, () => {
+  confirmDialog('Excluir Funcionário', `Deseja excluir "${f?.nome}"? Esta ação não pode ser desfeita.`, async () => {
     addHistorico('cadastro', id, `Funcionário excluído: ${f?.nome}`);
     state.funcionarios = state.funcionarios.filter(f=>f.id!==id);
-    saveState(); renderFuncionarios();
+    await saveState(); renderFuncionarios();
     showToast('Removido!', 'Funcionário excluído.', 'bg-red-600', 'delete');
   });
 }
@@ -1341,7 +1345,7 @@ function renderRelatorio() {
   const selFunc = document.getElementById('filtro-func');
   const funcFiltro = selFunc.value || 'todos';
   selFunc.innerHTML = '<option value="todos">Todos</option>';
-  state.funcionarios.forEach(f=>selFunc.innerHTML+=`<option value="${f.id}" ${String(f.id)===funcFiltro?'selected':''}>${f.nome}</option>`);
+  state.funcionarios.forEach(f=>{const o=document.createElement('option');o.value=f.id;o.textContent=f.nome;if(String(f.id)===funcFiltro)o.selected=true;selFunc.appendChild(o);});
   const rows = getRowsRelatorio(mes, ano, funcFiltro);
   let totalHoras=0, diasTrab=0, totalExtra=0;
   rows.forEach(d=>{
@@ -1534,10 +1538,11 @@ function renderRelatorioAtrasos() {
   diasAtrasados.sort((a,b)=>a.data.localeCompare(b.data));
   document.getElementById('atrasos-table').innerHTML = diasAtrasados.length>0?diasAtrasados.map(({funcId,data,entrada,atraso})=>{
     const func = state.funcionarios.find(f=>String(f.id)===String(funcId));
+    if (!func) return '';
     const turno = state.turnos.find(t=>t.nome===func.turno);
     const horarioEsperado = turno?turno.entrada:'—';
     return `<tr class="hover:bg-slate-50 transition-colors">
-      <td class="px-5 py-3 text-sm font-semibold">${escapeHtml(func?.nome||'—')}</td>
+      <td class="px-5 py-3 text-sm font-semibold">${escapeHtml(func.nome)}</td>
       <td class="px-5 py-3 text-sm text-slate-600">${formatDate(data)}</td>
       <td class="px-5 py-3 text-sm">${horarioEsperado}</td>
       <td class="px-5 py-3 text-sm font-semibold">${entrada}</td>
@@ -1570,9 +1575,9 @@ function renderHistorico() {
     </tr>`).join('');
 }
 function limparHistorico() {
-  confirmDialog('Limpar Histórico', 'Deseja apagar todo o histórico de ações? Esta ação não pode ser desfeita.', () => {
+  confirmDialog('Limpar Histórico', 'Deseja apagar todo o histórico de ações? Esta ação não pode ser desfeita.', async () => {
     state.historico = [];
-    saveState(); renderHistorico();
+    await saveState(); renderHistorico();
     showToast('Limpo!', 'Histórico apagado.', 'bg-red-600', 'delete');
   });
 }
@@ -1670,7 +1675,7 @@ function resetFormTurno() {
   document.getElementById('turno-tolerancia').value=5;
   document.getElementById('form-turno-title').textContent='Novo Turno';
 }
-function salvarTurno(e) {
+async function salvarTurno(e) {
   e.preventDefault();
   const nome=document.getElementById('turno-nome').value.trim();
   const entrada=document.getElementById('turno-entrada').value;
@@ -1682,7 +1687,7 @@ function salvarTurno(e) {
   if (editId) { const t=state.turnos.find(t=>t.id===editId); if(t){t.nome=nome;t.entrada=entrada;t.saida_int=saida_int;t.volta_int=volta_int;t.saida=saida;t.tolerancia=tolerancia;} }
   else state.turnos.push({id:state.nextTurnoId++,nome,entrada,saida_int,volta_int,saida,tolerancia});
   addHistorico('cadastro', null, `Turno "${nome}" ${editId?'editado':'criado'}`);
-  saveState(); resetFormTurno(); renderTurnos();
+  await saveState(); resetFormTurno(); renderTurnos();
   showToast('Salvo!', `Turno "${nome}" salvo.`);
 }
 function editarTurno(id) {
@@ -1698,10 +1703,10 @@ function editarTurno(id) {
 }
 function excluirTurno(id) {
   const t=state.turnos.find(t=>t.id===id);
-  confirmDialog('Excluir Turno', `Deseja excluir o turno "${t?.nome}"?`, () => {
+  confirmDialog('Excluir Turno', `Deseja excluir o turno "${t?.nome}"?`, async () => {
     addHistorico('cadastro', null, `Turno "${t?.nome}" excluído`);
     state.turnos=state.turnos.filter(t=>t.id!==id);
-    saveState(); renderTurnos();
+    await saveState(); renderTurnos();
     showToast('Removido!','Turno excluído.','bg-red-600','delete');
   });
 }
@@ -1725,7 +1730,8 @@ function exportarCSV() {
     const mins=saida?calcHorasDia(d.funcId,d.data):0;
     const extra=saida?calcHorasExtra(d.funcId,d.data):0;
     const status=saida&&entrada?'Completo':entrada?'Incompleto':'Ausente';
-    lines.push([func?.nome||'',formatDate(d.data),entrada?.hora||'',si?.hora||'',vi?.hora||'',saida?.hora||'',minToHHMM(mins),extra?minToHHMMSigned(extra):'',status].join(';'));
+    const csvEscape = v => `"${String(v).replace(/"/g,'""')}"`;
+    lines.push([func?.nome||'',formatDate(d.data),entrada?.hora||'',si?.hora||'',vi?.hora||'',saida?.hora||'',minToHHMM(mins),extra?minToHHMMSigned(extra):'',status].map(csvEscape).join(';'));
   });
   const blob=new Blob(['\uFEFF'+lines.join('\n')],{type:'text/csv;charset=utf-8;'});
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
@@ -1845,11 +1851,11 @@ function mostrarTela(qual) {
   document.getElementById(qual).classList.add('ativa');
 }
 
-function iniciarSessaoFuncionario(funcId) {
+async function iniciarSessaoFuncionario(funcId) {
   const func = state.funcionarios.find(f => f.id === funcId);
   if (!func) return;
   state.sessao = { tipo: 'funcionario', funcId };
-  saveState();
+  await saveState();
   // Preenche header
   document.getElementById('func-avatar').textContent = iniciais(func.nome);
   document.getElementById('func-avatar').className = `size-11 rounded-full ${func.cor} flex items-center justify-center font-extrabold text-sm`;
@@ -1871,9 +1877,9 @@ function iniciarSessaoFuncionario(funcId) {
   mostrarTela('tela-funcionario');
 }
 
-function iniciarSessaoAdmin() {
-  state.sessao = { tipo: 'admin', funcId: null };
-  saveState();
+async function iniciarSessaoAdmin() {
+  state.sessao = { tipo: 'admin', funcId: null, startedAt: Date.now() };
+  await saveState();
   mostrarTela('painel-admin');
   document.getElementById('filtro-mes').value = new Date().getMonth();
   document.getElementById('atrasos-filtro-mes').value = new Date().getMonth();
@@ -1885,12 +1891,12 @@ function iniciarSessaoAdmin() {
   document.addEventListener('keydown', resetAdminTimer);
 }
 
-function encerrarSessao() {
+async function encerrarSessao() {
   clearTimeout(adminActivityTimer);
   document.removeEventListener('click', resetAdminTimer);
   document.removeEventListener('keydown', resetAdminTimer);
   state.sessao = { tipo: null, funcId: null };
-  saveState();
+  await saveState();
   renderTelaPublica();
   mostrarTela('tela-publica');
 }
@@ -1995,6 +2001,7 @@ async function registrarPontoFunc(tipo) {
   const funcId = state.sessao.funcId;
   if (!funcId) return;
   const func = state.funcionarios.find(f => String(f.id) === String(funcId));
+  if (!func) { encerrarSessao(); return; }
   const hora = nowStr();
   const data = todayStr();
   const regsHoje = state.registros.filter(r => String(r.funcId) === String(funcId) && r.data === data);
@@ -2100,9 +2107,14 @@ document.getElementById('atrasos-filtro-mes').value = new Date().getMonth();
 popularSelects();
 renderTelaPublica();
 mostrarTela('tela-publica');
-// Se havia sessão admin salva, retoma (funcionários sempre voltam à tela pública por segurança)
+// Se havia sessão admin salva, retoma (com expiração de 30 min)
 if (state.sessao && state.sessao.tipo === 'admin') {
-  iniciarSessaoAdmin();
+  const elapsed = Date.now() - (state.sessao.startedAt || 0);
+  if (elapsed > 30 * 60 * 1000) {
+    state.sessao = { tipo: null, funcId: null };
+  } else {
+    iniciarSessaoAdmin();
+  }
 }
 renderDashboard();
 // Retry automático: a cada 30s tenta sincronizar registros pendentes
