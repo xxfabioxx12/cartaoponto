@@ -463,6 +463,7 @@
       <div class="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
         <div><h1 class="text-3xl font-extrabold tracking-tight">Relatórios Mensais</h1><p class="mt-1 text-slate-500">Controle detalhado de horas.</p></div>
         <div class="flex gap-3">
+          <button onclick="ajustarPontoSabrinaMes()" class="flex items-center gap-2 rounded-lg h-10 px-4 bg-white border border-slate-200 text-slate-700 text-sm font-bold hover:bg-slate-50 transition-all" title="Ajustar ponto da Sabrina no mês filtrado"><span class="material-symbols-outlined">manage_history</span>Sabrina</button>
           <button onclick="exportarCSV()" class="flex items-center gap-2 rounded-lg h-10 px-4 bg-white border border-slate-200 text-slate-700 text-sm font-bold hover:bg-slate-50 transition-all"><span class="material-symbols-outlined">table_chart</span>CSV</button>
           <button onclick="exportarPDF()" class="flex items-center gap-2 rounded-lg h-10 px-4 bg-primary text-white text-sm font-bold hover:bg-primary/90 transition-all"><span class="material-symbols-outlined">picture_as_pdf</span>PDF</button>
         </div>
@@ -2098,6 +2099,83 @@ async function salvarEditPonto() {
   closeEditPonto();
   renderRelatorio();
   showToast('Ponto Atualizado!', `Horários de ${func?.nome || ''} em ${formatDate(data)} foram ajustados.`);
+}
+
+function seededNumber(seed) {
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) {
+    hash = ((hash << 5) - hash) + seed.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash);
+}
+function minToTime(min) {
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+}
+function intervaloAleatorioSabrina(data, funcId) {
+  const inicioJanela = 12 * 60;
+  const fimJanela = 14 * 60 + 30;
+  const step = 5;
+  const slots = Math.floor((fimJanela - inicioJanela) / step) + 1;
+  const saidaInt = inicioJanela + (seededNumber(`${data}:${funcId}:sabrina`) % slots) * step;
+  return {
+    saida_intervalo: minToTime(saidaInt),
+    volta_intervalo: minToTime(saidaInt + 60),
+  };
+}
+async function aplicarPontoCompleto(funcId, data, horarios) {
+  state.registros = state.registros.filter(r => !(String(r.funcId) === String(funcId) && r.data === data));
+  ['entrada','saida_intervalo','volta_intervalo','saida'].forEach(tipo => {
+    state.registros.push({ funcId, tipo, hora: horarios[tipo], data });
+  });
+}
+async function ajustarPontoSabrinaMes() {
+  const func = state.funcionarios.find(f => /sabr[ie]na/i.test(f.nome || ''));
+  if (!func) {
+    showToast('Funcionária não encontrada', 'Não encontrei Sabrina/Sabina no cadastro.', 'bg-yellow-500', 'search');
+    return;
+  }
+
+  const mes = parseInt(document.getElementById('filtro-mes').value);
+  const anoEl = document.getElementById('filtro-ano');
+  const ano = anoEl ? parseInt(anoEl.value) || new Date().getFullYear() : new Date().getFullYear();
+  const diasComRegistro = [...new Set(state.registros
+    .filter(r => String(r.funcId) === String(func.id))
+    .filter(r => {
+      const d = new Date(r.data + 'T12:00:00');
+      const diaSemana = d.getDay();
+      return d.getMonth() === mes && d.getFullYear() === ano && diaSemana >= 1 && diaSemana <= 6;
+    })
+    .map(r => r.data))]
+    .sort();
+
+  if (!diasComRegistro.length) {
+    showToast('Nenhum dia para ajustar', `Não há registros de ${func.nome} de segunda a sábado no mês filtrado.`, 'bg-yellow-500', 'event_busy');
+    return;
+  }
+
+  confirmDialog(
+    'Ajustar ponto da Sabrina?',
+    `Vou ajustar ${diasComRegistro.length} dia(s) de segunda a sábado em ${MESES[mes]}/${ano}: entrada 09:00, intervalo aleatório de 1h e saída 17:20.`,
+    async () => {
+      diasComRegistro.forEach(data => {
+        const intervalo = intervaloAleatorioSabrina(data, func.id);
+        aplicarPontoCompleto(func.id, data, {
+          entrada: '09:00',
+          saida_intervalo: intervalo.saida_intervalo,
+          volta_intervalo: intervalo.volta_intervalo,
+          saida: '17:20',
+        });
+      });
+      addHistorico('ponto', func.id, `Ajuste em lote: ${diasComRegistro.length} dia(s) de ${MESES[mes]}/${ano}, segunda a sábado, 09:00-17:20 com 1h de intervalo`);
+      await saveState();
+      renderRelatorio();
+      renderDashboard();
+      showToast('Pontos ajustados', `${diasComRegistro.length} dia(s) de ${func.nome} foram atualizados.`, 'bg-green-500', 'check_circle');
+    }
+  );
 }
 // ============================================================
 // INIT
